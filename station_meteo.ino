@@ -1,3 +1,10 @@
+extern "C" {
+  #include "user_interface.h" // this is for the RTC memory read/write functions
+}
+
+#define RTCMEMORYSTART 66
+#define RTCMEMORYLEN 125
+
 #include <GxEPD.h>
 #include <GxFont_GFX.h>
 #include <Adafruit_GFX.h>
@@ -28,6 +35,14 @@
 #define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
 
 #include<SPI.h>
+
+typedef struct {
+  float battery;
+  int other;
+} rtcStore;
+
+rtcStore rtcValues;
+
 
 GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2), selected for default of GxEPD_Class
 // GxGDEP015OC1(GxIO& io, uint8_t rst = 2, uint8_t busy = 4);
@@ -75,6 +90,13 @@ void setup() {
   drawBackground();
 }
 
+//TODO 
+// TRY THIS :
+// ESP.getResetReason()
+// } else if (resetInfo.reason == REASON_DEEP_SLEEP_AWAKE) { // wake up from deep-sleep
+//      strcpy_P(buff, PSTR("Deep-Sleep Wake"));
+      
+
 void loop() {
   unsigned long currentMillis = millis();
   // EVERY MINUTE -> TODO CHANGE TO ONCE A DAY
@@ -93,6 +115,9 @@ void loop() {
           cHour = 0;
         }
       }
+    }
+    if(cHour == 0 && cMin == 0){
+      getTime();
     }
     millisTime = currentMillis;
     displayTime();
