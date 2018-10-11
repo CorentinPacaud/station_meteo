@@ -28,6 +28,8 @@ extern "C" {
 #include "config.h"
 #include "font36.h"
 #include "background.c"
+#include "no_wifi.c"
+#include "wifi.c"
 
 #include "DHT.h"
 
@@ -37,8 +39,12 @@ extern "C" {
 #include<SPI.h>
 
 typedef struct {
-  float battery;
-  int other;
+  // min, hour, d,m,y
+  uint32_t minutes;
+  uint32_t hours;
+  uint32_t days;
+  uint32_t months;
+  uint32_t years;
 } rtcStore;
 
 rtcStore rtcValues;
@@ -52,28 +58,32 @@ const char* ssid = SSID;
 const char* password = SSID_PASSWORD;
 
 HTTPClient http;
+const char * headerKeys[] = {"Date"};
 
 // TIME
 char timeUrl[] = TIME_URL;
-int cHour = -1;
-int cMin = -1;
-int cDay = 1;
-int cMonth = 1;
-int cYear = 1;
-int sleepSec = 0;
-unsigned long millisTime = 0;
+const unsigned int GMT_D = 2;
+unsigned int cHour = 0;
+unsigned int cMin = 0;
+unsigned int cDay = 1;
+unsigned int cMonth = 1;
+unsigned int cYear = 1;
 
-int i = 0;
+const String MONTHS[] = {"Jan", "Fev", "Mars","Avril", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"};
+const String HEADERSMONTHS[]        = {"Jan" , "Feb" , "Mar" , "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
 bool fillRected = false;
-  const GFXfont* f = &FreeMonoBold9pt7b;
+
+const GFXfont* f = &FreeMonoBold9pt7b;
 
 bool startUp = true;
 
 DHT dht(DHTPIN, DHTTYPE);
 float currentTemp = 0.0;
+  unsigned long currentMillis;
 
 void setup() {
+  currentMillis = millis();
   Serial.begin(115200);
   Serial.println();
   Serial.println("setup");
@@ -87,7 +97,7 @@ void setup() {
   //display.update();
 
   Serial.println("setup done");
-  drawBackground();
+  checkStart();
 }
 
 //TODO 
@@ -98,14 +108,9 @@ void setup() {
       
 
 void loop() {
-  unsigned long currentMillis = millis();
-  // EVERY MINUTE -> TODO CHANGE TO ONCE A DAY
-  if ((unsigned long)(currentMillis - millisTime) >= (1000 * 60) || millisTime == 0) {
    
-    readTemperature();
-    displayTemperature();
-    if(cHour == -1 && cMin == -1){
-      getTime();
+    if(startUp){
+      //getTime();
     }else{
       cMin++;
       if(cMin == 60){
@@ -116,19 +121,72 @@ void loop() {
         }
       }
     }
-    if(cHour == 0 && cMin == 0){
-      getTime();
+    if(startUp || cMin == 0 || cMin == -1){
+      drawBackground();
     }
-    millisTime = currentMillis;
-    displayTime();
+    // Display and Send temp every 5 min;
+    if(cMin % 5 == 0 || startUp){
+      readTemperature();
+      displayTemperature();
+    }
     if(startUp|| cMin%60==0){
-        updateDate();
-   //   display.update();
-//      delay(5000);
+      updateDate();
       startUp = false;
    }
+   
+    if(cHour == 0 && cMin == 0){
+      //getTime();
+    }
+    displayTime();
+    saveData();
+   ESP.deepSleep((60000-(millis()-currentMillis))*1000);
+}
+
+void checkStart(){
+  String rstReason = ESP.getResetReason();
+  Serial.print("Start reason: ");
+  Serial.println(rstReason);
+  if(rstReason == "External System"){
+    // INIT RTC_MEM
+    Serial.println("Init RTC MEM");
+    startUp = true;
+    rtcValues.minutes = cMin;
+    rtcValues.hours = cHour;
+    rtcValues.days = cDay;
+    rtcValues.months = cMonth;
+    rtcValues.years = cYear;
+    ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcValues, sizeof(rtcValues));
+  }else{
+    //RETREIVE DATA FROM RTC.
+    startUp = false;
+    if(ESP.rtcUserMemoryRead(0,(uint32_t*) &rtcValues, sizeof(rtcValues))){
+    Serial.println("READ RTC MEM");
+      cMin = rtcValues.minutes;
+      cHour = rtcValues.hours;
+      cDay = rtcValues.days;
+      cMonth = rtcValues.months;
+      cYear = rtcValues.years;
+    }
   }
-  delay(60000-(millis()-currentMillis));
+}
+
+void saveData(){
+  rtcValues.minutes = cMin;
+  rtcValues.hours = cHour;
+  rtcValues.days = cDay;
+  rtcValues.months = cMonth;
+  rtcValues.years = cYear;
+  Serial.print("Data saved: ");
+  Serial.print(rtcValues.minutes);
+  Serial.print(", ");
+  Serial.print(rtcValues.hours);
+  Serial.print(", ");
+  Serial.print(rtcValues.days);
+  Serial.print(", ");
+  Serial.print(rtcValues.months);
+  Serial.print(", ");
+  Serial.println(rtcValues.years); 
+  ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcValues, sizeof(rtcValues));
 }
 
 void readTemperature(){
@@ -148,13 +206,20 @@ void readTemperature(){
     Serial.println(currentTemp);
     
     // POST TEMP
+    
+  http.setTimeout(5000);
   http.begin(String(THINGSPEAK_POST) + "&field1=" + currentTemp);
+  http.collectHeaders(headerKeys, 1);
   int httpCode = http.GET();   //Send the request
   if (httpCode == 200) {
     // SUCCESS
     Serial.println("POST T SUCCESS");
+    drawWifi();
+    String headerDate = http.header("Date");
+    parseTime2(headerDate);
   } else {
     Serial.println("POST T Error : " + httpCode);
+    drawNoWifi();
   }
   http.end();  //Close connection
 
@@ -191,13 +256,24 @@ void displayTemperature(){
   display.print(String(round(currentTemp)));
   display.print("*C");
   display.updateWindow(cursor_x, cursor_y - height, width, height, true);
-  delay(2000);
 }
 
 void drawBackground(){
    display.drawPicture(image_data_background3, sizeof(image_data_background3));
   //delay(5000);
 }
+
+void drawWifi(){
+   display.drawBitmap(image_data_wifi,10, 10, 20,20, GxEPD_WHITE);
+  display.updateWindow(10, 10, 25, 25, true);
+  //delay(5000);
+}
+
+void drawNoWifi(){
+   display.drawBitmap(image_data_no_wifi,10, 10, 20,20, GxEPD_WHITE);
+   display.updateWindow(10, 10, 25, 25, true);
+}
+
 
 void displayTime(){
  //  display.fillRect(150, 100, 100, 200, GxEPD_WHITE);
@@ -219,23 +295,18 @@ void displayTime(){
     display.print("0");
   }
   display.print(cMin);
- // if(cMin % 10 == 0){
- //   if(cMin != 0)
-  //    display.updateWindow(cursor_x+120, cursor_y-height, width, height, true);
-  //  else
-      display.updateWindow(cursor_x, cursor_y-height, width, height, true);
- // }else{
-  //  display.updateWindow(cursor_x+160, cursor_y-height, width, height, true);
-  //}
-  delay(2000);
+
+  display.updateWindow(cursor_x, cursor_y-height, width, height, true);
+
 }
 
 void updateDate(){
-  int cursor_x = 130;
+  int cursor_x = 115;
   int cursor_y = 95;
-  int width = 140;
+  int width = 170;
   int height = 30;
-  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
+  int negHeight = 10;
+  display.fillRect(cursor_x,cursor_y - height, width, height+negHeight, GxEPD_WHITE);
   display.setTextColor(GxEPD_BLACK);
   display.setFont(&FreeMonoBold12pt7b);
   display.setCursor(cursor_x, cursor_y);
@@ -243,15 +314,14 @@ void updateDate(){
      display.print("0");
   }
   display.print(cDay);
-  display.print("-");  
-  if (cMonth < 10) {
-     display.print("0");
-  }
-  display.print(cMonth);
-  display.print("-");
+  display.print(" ");  
+//  if (cMonth < 10) {
+//     display.print("0");
+//  }
+  display.print(MONTHS[cMonth]);
+  display.print(" ");
   display.print(cYear);
-  display.updateWindow(cursor_x, cursor_y - height, width, height, true);
-  delay(2000);
+  display.updateWindow(cursor_x, cursor_y - height, width, height + negHeight, true);
 }
 
 
@@ -285,8 +355,6 @@ void parseTime(String date) {
     cHour = ((date.charAt(index - 2) - '0') * 10) + (date.charAt(index - 1) - '0');
     cMin = ((date.charAt(index + 1) - '0') * 10) + (date.charAt(index + 2) - '0');
     Serial.println("HOUR:" + String(cHour) + "  Min:" + String(cMin));
-       sleepSec = (date.charAt(index + 4) - '0') * 10 + (date.charAt(index + 5) - '0');
-    Serial.println("SleepSec:" + String(sleepSec));
   }
   int indexD = date.indexOf('.');
   if (indexD >= 0) {
@@ -294,6 +362,51 @@ void parseTime(String date) {
     cMonth = ((date.charAt(3) - '0') * 10) + (date.charAt(4) - '0');
     cYear = ((date.charAt(6) - '0') * 1000) +((date.charAt(7) - '0') * 100) +((date.charAt(8) - '0') * 10)+ (date.charAt(9) - '0');
   }
+}
+
+
+void parseTime2(String date){
+  //Tue, 02 Oct 2018 21:22:57 GMT
+  char * pch;
+  char pDate[20];
+  Serial.println("HEADERS : ");
+  Serial.println(date);
+  date.toCharArray(pDate, date.length());
+  Serial.println(pDate);
+  pch = strtok (pDate," :");
+  int i = 0;
+  Serial.println(pch);
+  Serial.println("SPLIT");
+  while (pch != NULL)
+  {
+    
+  Serial.println(pch);
+    if(i == 1) // jour;
+      cDay = atoi(pch);
+    if(i == 2){// MOIS
+      //TODO
+      int j = 0;
+      while(j<12){
+        if(HEADERSMONTHS[j] == pch){
+          cMonth = j;
+          break;
+        }
+        j++;
+      }
+    }
+    if(i == 3) //année
+      cYear = atoi(pch);
+    if(i == 4) // hours
+      cHour = (atoi(pch)+GMT_D)%24;
+    if(i == 5)
+      cMin = atoi(pch);
+    
+      
+    i++;
+   pch = strtok (NULL, " :");
+  }
+  Serial.println("HOUR:" + String(cHour) + "  Min:" + String(cMin));
+  Serial.println("DAY:" + String(cDay) + "  Month:" + String(cMonth) + "  YEAR:" + String(cYear));
 }
 
 
