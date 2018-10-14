@@ -83,6 +83,7 @@ float tempExtMax = 0.0f;
 float tempExtMin = 0.0f;
 
 float humIntCurr = 0.0f;
+float humExtCurr = 99.0f;
 
 
 bool startUp = true;
@@ -149,8 +150,9 @@ void loop() {
     }
     displayTime();
     saveData();
-   //ESP.deepSleep((60000-(millis()-currentMillis))*1000);
-   delay(60000-(millis()-currentMillis));
+   ESP.deepSleep((60000-(millis()-currentMillis))*1000);
+   unsigned long MIN = 60000UL;
+   //delay(MIN-(millis()-currentMillis));
 }
 
 void checkStart(){
@@ -259,37 +261,55 @@ void getInfo(){
 }
 
 void parseLast24HInTemp(String data){
-    
-    const size_t bufferSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 3*JSON_OBJECT_SIZE(3) + 250;
-    DynamicJsonBuffer jsonBuffer(bufferSize);
-       
-    JsonArray& root = jsonBuffer.parseArray(data);
-    
-    JsonObject& root_0_max_int_temp = root[0]["max_int_temp"];
-   // const char* root_0_max_int_temp_created_at = root_0_max_int_temp["created_at"]; // "2018-10-13T00:25:03Z"
-   // int root_0_max_int_temp_entry_id = root_0_max_int_temp["entry_id"]; // 17227
-    tempIntMax = atof(root_0_max_int_temp["field1"]); // "27.30"
-    
-    JsonObject& root_0_min_int_field1 = root[0]["min_int_field1"];
-    //const char* root_0_min_int_field1_created_at = root_0_min_int_field1["created_at"]; // "2018-10-13T08:10:56Z"
-    //int root_0_min_int_field1_entry_id = root_0_min_int_field1["entry_id"]; // 17317
-    tempIntMin = atof(root_0_min_int_field1["field1"]); // "22.50"
-    
-    JsonObject& root_1_ext_temp = root[1]["ext_temp"];
-    //const char* root_1_ext_temp_created_at = root_1_ext_temp["created_at"]; // "2018-10-13T21:35:24Z"
-    //int root_1_ext_temp_entry_id = root_1_ext_temp["entry_id"]; // 17479
-    tempExtCurr = atof(root_1_ext_temp["field1"]); // "25.20"
-    
+   const size_t bufferSize = JSON_ARRAY_SIZE(3) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + 5*JSON_OBJECT_SIZE(3) + 400;
+DynamicJsonBuffer jsonBuffer(bufferSize);
+
+JsonArray& root = jsonBuffer.parseArray(data);
+
+JsonArray& root_ = root;
+
+JsonObject& root_0_max_int_temp = root_[0]["max_int_temp"];
+//const char* root_0_max_int_temp_created_at = root_0_max_int_temp["created_at"]; // "2018-10-13T23:02:29Z"
+//int root_0_max_int_temp_entry_id = root_0_max_int_temp["entry_id"]; // 17487
+tempIntMax = atof(root_0_max_int_temp["field1"]); // "27.30"
+
+JsonObject& root_0_min_int_temp = root_[0]["min_int_temp"];
+//const char* root_0_min_int_temp_created_at = root_0_min_int_temp["created_at"]; // "2018-10-13T22:10:48Z"
+//int root_0_min_int_temp_entry_id = root_0_min_int_temp["entry_id"]; // 17483
+tempIntMin = atof(root_0_min_int_temp["field1"]); // "25.20"
+
+JsonObject& root_1_max_ext_temp = root_[1]["max_ext_temp"];
+//const char* root_1_max_ext_temp_created_at = root_1_max_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+//int root_1_max_ext_temp_entry_id = root_1_max_ext_temp["entry_id"]; // 17526
+tempExtMax= atof(root_1_max_ext_temp["field2"]); // "99"
+
+JsonObject& root_1_min_ext_temp = root_[1]["min_ext_temp"];
+//const char* root_1_min_ext_temp_created_at = root_1_min_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+//int root_1_min_ext_temp_entry_id = root_1_min_ext_temp["entry_id"]; // 17526
+tempExtMin = atof(root_1_min_ext_temp["field2"]); // "99"
+
+JsonObject& root_2_ext_temp = root_[2]["ext_temp"];
+//const char* root_2_ext_temp_created_at = root_2_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+//int root_2_ext_temp_entry_id = root_2_ext_temp["entry_id"]; // 17526
+tempExtCurr = atof(root_2_ext_temp["field1"]); // "26.60"
+        
     Serial.print(tempIntMax);
     Serial.print("    ");
     Serial.print(tempIntMin);
     Serial.print("    ");
     Serial.print(tempIntCurr);
     Serial.print("    ");
-    Serial.println(tempExtCurr);
+    Serial.print(tempExtCurr);
+    Serial.print("    ");
+    Serial.print(tempExtMax);
+    Serial.print("    ");
+    Serial.println(tempExtMin);
 }
 
 void displayTemperature(){
+  // INTERIOR---------------------------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------------------------------------
+  // CURRENT
   int cursor_x = 5;
   int cursor_y = 90;
   int width = 90;
@@ -344,7 +364,65 @@ void displayTemperature(){
   display.print(String(round(humIntCurr)));
   display.print("%");
   display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
+
   
+  // EXTERIOR --------------------------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------------------------------------
+
+  // CURRENT
+   cursor_x = 305;
+   cursor_y = 90;
+   width = 90;
+   height = 30;
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(tempExtCurr)));
+  display.print("*C");
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+
+
+  // MAX 
+  cursor_x = 330;
+  cursor_y = 130;
+  width = 50;
+  height = 20;
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold12pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(tempExtMax)));
+  display.print("*");
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+
+
+  
+  // MIN 
+  cursor_x = 330;
+  cursor_y = 175;
+  width = 50;
+  height = 20;
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold12pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(tempExtMin)));
+  display.print("*");
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  
+  // Humidity 
+  cursor_x = 310;
+  cursor_y = 230;
+  width = 60;
+  height = 30;
+  display.fillRect(cursor_x - 5,cursor_y - height, width + 15, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(humExtCurr)));
+  display.print("%");
+  display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
 }
 
 void drawBackground(){
