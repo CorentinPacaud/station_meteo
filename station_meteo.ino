@@ -1,7 +1,6 @@
 extern "C" {
   #include "user_interface.h" // this is for the RTC memory read/write functions
 }
-
 #define RTCMEMORYSTART 66
 #define RTCMEMORYLEN 125
 
@@ -28,8 +27,6 @@ extern "C" {
 #include "config.h"
 #include "font36.h"
 #include "background.c"
-#include "no_wifi.c"
-#include "wifi.c"
 
 #include "DHT.h"
 
@@ -58,6 +55,7 @@ const char* ssid = SSID;
 const char* password = SSID_PASSWORD;
 
 HTTPClient http;
+HTTPClient https;
 const char * headerKeys[] = {"Date"};
 
 // TIME
@@ -76,10 +74,20 @@ bool fillRected = false;
 
 const GFXfont* f = &FreeMonoBold9pt7b;
 
+float tempIntCurr = 0.0f;
+float tempIntMax = 0.0f;
+float tempIntMin = 0.0f;
+
+float tempExtCurr = 0.0f;
+float tempExtMax = 0.0f;
+float tempExtMin = 0.0f;
+
+float humIntCurr = 0.0f;
+
+
 bool startUp = true;
 
 DHT dht(DHTPIN, DHTTYPE);
-float currentTemp = 0.0;
   unsigned long currentMillis;
 
 void setup() {
@@ -127,6 +135,7 @@ void loop() {
     // Display and Send temp every 5 min;
     if(cMin % 5 == 0 || startUp){
       readTemperature();
+      getInfo();
       displayTemperature();
     }
     if(startUp|| cMin%60==0){
@@ -134,12 +143,14 @@ void loop() {
       startUp = false;
    }
    
+    Serial.println("STARTUP");
     if(cHour == 0 && cMin == 0){
       //getTime();
     }
     displayTime();
     saveData();
-   ESP.deepSleep((60000-(millis()-currentMillis))*1000);
+   //ESP.deepSleep((60000-(millis()-currentMillis))*1000);
+   delay(60000-(millis()-currentMillis));
 }
 
 void checkStart(){
@@ -190,25 +201,27 @@ void saveData(){
 }
 
 void readTemperature(){
-   float h = dht.readHumidity();
+    humIntCurr = dht.readHumidity();
+    Serial.println("H:");
+    Serial.println(humIntCurr);
     // Read temperature as Celsius (the default)
-    currentTemp = dht.readTemperature();
+    tempIntCurr = dht.readTemperature();
     // Read temperature as Fahrenheit (isFahrenheit = true)
     float f = dht.readTemperature(true);
 
     // Check if any reads failed and exit early (to try again).
-    if (isnan(currentTemp) || isnan(currentTemp) || isnan(currentTemp)) {
+    if (isnan(tempIntCurr) || isnan(tempIntCurr) || isnan(tempIntCurr)) {
       Serial.println("Failed to read from DHT sensor!");
       
       return;
     }
     Serial.println("T:");
-    Serial.println(currentTemp);
+    Serial.println(tempIntCurr);
     
     // POST TEMP
     
   http.setTimeout(5000);
-  http.begin(String(THINGSPEAK_POST) + "&field1=" + currentTemp);
+  http.begin(String(THINGSPEAK_POST) + "&field1=" + tempIntCurr);
   http.collectHeaders(headerKeys, 1);
   int httpCode = http.GET();   //Send the request
   if (httpCode == 200) {
@@ -222,26 +235,58 @@ void readTemperature(){
     drawNoWifi();
   }
   http.end();  //Close connection
+}
 
-//  // GET EXT TEMP
-//  http.begin(TSGetLastFiel2);
-//  httpCode = http.GET();
-//  if (httpCode > 0) { //Check the returning code
-//    String json = http.getString();   //Get the request response payload
-//    Serial.println(json);                     //Print the response payload
-//    const size_t bufferSize = JSON_OBJECT_SIZE(3) + 70;
-//    DynamicJsonBuffer jsonBuffer(bufferSize);
-//    JsonObject& root = jsonBuffer.parseObject(json);
-//
-//    const char* created_at = root["created_at"]; // "2018-05-14T20:41:46Z"
-//    int entry_id = root["entry_id"]; // 624
-//    const char* field2 = root["field2"]; // "19.6"
-//    extTemp = atof(field2);
-//  } else {
-//    Serial.println("GET xT Error : " + httpCode);
-//  }
-//  http.end();   //Close connection
+void getInfo(){
+   HTTPClient http;
 
+  http.setTimeout(5000);
+  String url = String(HEROKU_INFO);
+  Serial.println("URL: "+url);
+  http.begin(url);
+  int httpCode = http.GET();   //Send the request
+  if (httpCode == HTTP_CODE_OK) {
+    // SUCCESS
+      Serial.println("Success get Last 24h");
+      String payload = http.getString();
+      Serial.println("RESULT: " +payload);
+      parseLast24HInTemp(payload);
+  } else {
+    Serial.println("POST T Error : " + httpCode);
+    //drawNoWifi();
+  }
+  http.end();  //Close connection
+}
+
+void parseLast24HInTemp(String data){
+    
+    const size_t bufferSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 3*JSON_OBJECT_SIZE(3) + 250;
+    DynamicJsonBuffer jsonBuffer(bufferSize);
+       
+    JsonArray& root = jsonBuffer.parseArray(data);
+    
+    JsonObject& root_0_max_int_temp = root[0]["max_int_temp"];
+   // const char* root_0_max_int_temp_created_at = root_0_max_int_temp["created_at"]; // "2018-10-13T00:25:03Z"
+   // int root_0_max_int_temp_entry_id = root_0_max_int_temp["entry_id"]; // 17227
+    tempIntMax = atof(root_0_max_int_temp["field1"]); // "27.30"
+    
+    JsonObject& root_0_min_int_field1 = root[0]["min_int_field1"];
+    //const char* root_0_min_int_field1_created_at = root_0_min_int_field1["created_at"]; // "2018-10-13T08:10:56Z"
+    //int root_0_min_int_field1_entry_id = root_0_min_int_field1["entry_id"]; // 17317
+    tempIntMin = atof(root_0_min_int_field1["field1"]); // "22.50"
+    
+    JsonObject& root_1_ext_temp = root[1]["ext_temp"];
+    //const char* root_1_ext_temp_created_at = root_1_ext_temp["created_at"]; // "2018-10-13T21:35:24Z"
+    //int root_1_ext_temp_entry_id = root_1_ext_temp["entry_id"]; // 17479
+    tempExtCurr = atof(root_1_ext_temp["field1"]); // "25.20"
+    
+    Serial.print(tempIntMax);
+    Serial.print("    ");
+    Serial.print(tempIntMin);
+    Serial.print("    ");
+    Serial.print(tempIntCurr);
+    Serial.print("    ");
+    Serial.println(tempExtCurr);
 }
 
 void displayTemperature(){
@@ -249,29 +294,73 @@ void displayTemperature(){
   int cursor_y = 90;
   int width = 90;
   int height = 30;
-  display.fillRect(cursor_x-5,cursor_y - height, width+10, height, GxEPD_BLACK);
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
   display.setTextColor(GxEPD_WHITE);
   display.setFont(&FreeMonoBold18pt7b);
   display.setCursor(cursor_x, cursor_y);
-  display.print(String(round(currentTemp)));
+  display.print(String(round(tempIntCurr)));
   display.print("*C");
-  display.updateWindow(cursor_x, cursor_y - height, width, height, true);
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+
+
+  // MAX 
+  cursor_x = 25;
+  cursor_y = 130;
+  width = 50;
+  height = 20;
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold12pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(tempIntMax)));
+  display.print("*");
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+
+
+  
+  // MIN 
+  cursor_x = 25;
+  cursor_y = 175;
+  width = 50;
+  height = 20;
+  display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold12pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(tempIntMin)));
+  display.print("*");
+  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+
+  
+  // Humidity 
+  cursor_x = 30;
+  cursor_y = 230;
+  width = 60;
+  height = 30;
+  display.fillRect(cursor_x - 5,cursor_y - height, width + 15, height+2, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(String(round(humIntCurr)));
+  display.print("%");
+  display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
+  
 }
 
 void drawBackground(){
-   display.drawPicture(image_data_background3, sizeof(image_data_background3));
+   display.drawPicture(image_data_background, sizeof(image_data_background));
   //delay(5000);
 }
 
 void drawWifi(){
-   display.drawBitmap(image_data_wifi,10, 10, 20,20, GxEPD_WHITE);
-  display.updateWindow(10, 10, 25, 25, true);
+  // display.drawBitmap(image_data_wifi,10, 10, 20,20, GxEPD_WHITE);
+  //display.updateWindow(10, 10, 25, 25, true);
   //delay(5000);
 }
 
 void drawNoWifi(){
-   display.drawBitmap(image_data_no_wifi,10, 10, 20,20, GxEPD_WHITE);
-   display.updateWindow(10, 10, 25, 25, true);
+ //  display.drawBitmap(image_data_no_wifi,10, 10, 20,20, GxEPD_WHITE);
+  // display.updateWindow(10, 10, 25, 25, true);
 }
 
 
@@ -426,7 +515,7 @@ void initWifi() {
 
   // Starting the web server
   //server.begin();
-  Serial.println("Web server running. Waiting for the ESP IP...");
+  //Serial.println("Web server running. Waiting for the ESP IP...");
   // delay(10000);
 
   // Printing the ESP IP address
