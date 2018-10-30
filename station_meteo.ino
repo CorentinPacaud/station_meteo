@@ -9,10 +9,10 @@ extern "C" {
 #include <Adafruit_GFX.h>
 #include <math.h>
 
-#include <GxGDEW042T2/GxGDEW042T2.cpp>      // 4.2" b/w 400 x 300 px
+#include <GxGDEW042T2/GxGDEW042T2.h>      // 4.2" b/w    // 4.2" b/w 400 x 300 px
 
-#include <GxIO/GxIO_SPI/GxIO_SPI.cpp>
-#include <GxIO/GxIO.cpp>
+#include <GxIO/GxIO_SPI/GxIO_SPI.h>
+#include <GxIO/GxIO.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 // FreeFonts from Adafruit_GFX
@@ -59,8 +59,8 @@ HTTPClient https;
 const char * headerKeys[] = {"Date"};
 
 // TIME
-char timeUrl[] = TIME_URL;
-const unsigned int GMT_D = 2;
+//char timeUrl[] = TIME_URL;
+const unsigned int GMT_D = 1;
 unsigned int cHour = 0;
 unsigned int cMin = 0;
 unsigned int cDay = 1;
@@ -92,7 +92,6 @@ DHT dht(DHTPIN, DHTTYPE);
   unsigned long currentMillis;
 
 void setup() {
-  currentMillis = millis();
   Serial.begin(115200);
   Serial.println();
   Serial.println("setup");
@@ -117,9 +116,11 @@ void setup() {
       
 
 void loop() {
-   
+   Serial.println("LOOP-----------------------------------------------------------------------");
+  currentMillis = millis();
     if(startUp){
       //getTime();
+      Serial.println("STARTUP");
     }else{
       cMin++;
       if(cMin == 60){
@@ -129,30 +130,32 @@ void loop() {
           cHour = 0;
         }
       }
-    }
-    if(startUp || cMin == 0 || cMin == -1){
-      drawBackground();
-    }
+    } 
+       
     // Display and Send temp every 5 min;
     if(cMin % 5 == 0 || startUp){
       readTemperature();
       getInfo();
-      displayTemperature();
     }
-    if(startUp|| cMin%60==0){
-      updateDate();
+   if(startUp || cMin == 0 || cMin % 5 == 0){
+      Serial.println("Draw background");
+      drawBackground();
+      updateDate(false);
+      displayTemperature(false);
+      Serial.println("BIG UPDATE");
+      displayTime(false);
+      display.update();
       startUp = false;
-   }
-   
-    Serial.println("STARTUP");
-    if(cHour == 0 && cMin == 0){
-      //getTime();
+      //PRESET FOR PARTIAL UPDATE !
+      display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
+    }else{
+      displayTime(true);
+      //display.update();
     }
-    displayTime();
     saveData();
-   ESP.deepSleep((60000-(millis()-currentMillis))*1000);
-   unsigned long MIN = 60000UL;
-   //delay(MIN-(millis()-currentMillis));
+   //ESP.deepSleep((60000-(millis()-currentMillis))*1000);
+   unsigned long MIN = 15000UL;
+   delay(MIN-(millis()-currentMillis));
 }
 
 void checkStart(){
@@ -226,17 +229,20 @@ void readTemperature(){
   http.begin(String(THINGSPEAK_POST) + "&field1=" + tempIntCurr);
   http.collectHeaders(headerKeys, 1);
   int httpCode = http.GET();   //Send the request
+  Serial.print("Status code : "); 
+  Serial.println(httpCode);
   if (httpCode == 200) {
     // SUCCESS
     Serial.println("POST T SUCCESS");
-    drawWifi();
+    //drawWifi();
     String headerDate = http.header("Date");
     parseTime2(headerDate);
   } else {
     Serial.println("POST T Error : " + httpCode);
-    drawNoWifi();
+    //drawNoWifi();
   }
   http.end();  //Close connection
+  delay(1000);
 }
 
 void getInfo(){
@@ -262,37 +268,37 @@ void getInfo(){
 
 void parseLast24HInTemp(String data){
    const size_t bufferSize = JSON_ARRAY_SIZE(3) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + 5*JSON_OBJECT_SIZE(3) + 400;
-DynamicJsonBuffer jsonBuffer(bufferSize);
-
-JsonArray& root = jsonBuffer.parseArray(data);
-
-JsonArray& root_ = root;
-
-JsonObject& root_0_max_int_temp = root_[0]["max_int_temp"];
-//const char* root_0_max_int_temp_created_at = root_0_max_int_temp["created_at"]; // "2018-10-13T23:02:29Z"
-//int root_0_max_int_temp_entry_id = root_0_max_int_temp["entry_id"]; // 17487
-tempIntMax = atof(root_0_max_int_temp["field1"]); // "27.30"
-
-JsonObject& root_0_min_int_temp = root_[0]["min_int_temp"];
-//const char* root_0_min_int_temp_created_at = root_0_min_int_temp["created_at"]; // "2018-10-13T22:10:48Z"
-//int root_0_min_int_temp_entry_id = root_0_min_int_temp["entry_id"]; // 17483
-tempIntMin = atof(root_0_min_int_temp["field1"]); // "25.20"
-
-JsonObject& root_1_max_ext_temp = root_[1]["max_ext_temp"];
-//const char* root_1_max_ext_temp_created_at = root_1_max_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
-//int root_1_max_ext_temp_entry_id = root_1_max_ext_temp["entry_id"]; // 17526
-tempExtMax= atof(root_1_max_ext_temp["field2"]); // "99"
-
-JsonObject& root_1_min_ext_temp = root_[1]["min_ext_temp"];
-//const char* root_1_min_ext_temp_created_at = root_1_min_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
-//int root_1_min_ext_temp_entry_id = root_1_min_ext_temp["entry_id"]; // 17526
-tempExtMin = atof(root_1_min_ext_temp["field2"]); // "99"
-
-JsonObject& root_2_ext_temp = root_[2]["ext_temp"];
-//const char* root_2_ext_temp_created_at = root_2_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
-//int root_2_ext_temp_entry_id = root_2_ext_temp["entry_id"]; // 17526
-tempExtCurr = atof(root_2_ext_temp["field1"]); // "26.60"
-        
+    DynamicJsonBuffer jsonBuffer(bufferSize);
+    
+    JsonArray& root = jsonBuffer.parseArray(data);
+    
+    JsonArray& root_ = root;
+    
+    JsonObject& root_0_max_int_temp = root_[0]["max_int_temp"];
+    //const char* root_0_max_int_temp_created_at = root_0_max_int_temp["created_at"]; // "2018-10-13T23:02:29Z"
+    //int root_0_max_int_temp_entry_id = root_0_max_int_temp["entry_id"]; // 17487
+    tempIntMax = atof(root_0_max_int_temp["field1"]); // "27.30"
+    
+    JsonObject& root_0_min_int_temp = root_[0]["min_int_temp"];
+    //const char* root_0_min_int_temp_created_at = root_0_min_int_temp["created_at"]; // "2018-10-13T22:10:48Z"
+    //int root_0_min_int_temp_entry_id = root_0_min_int_temp["entry_id"]; // 17483
+    tempIntMin = atof(root_0_min_int_temp["field1"]); // "25.20"
+    
+    JsonObject& root_1_max_ext_temp = root_[1]["max_ext_temp"];
+    //const char* root_1_max_ext_temp_created_at = root_1_max_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+    //int root_1_max_ext_temp_entry_id = root_1_max_ext_temp["entry_id"]; // 17526
+    tempExtMax= atof(root_1_max_ext_temp["field2"]); // "99"
+    
+    JsonObject& root_1_min_ext_temp = root_[1]["min_ext_temp"];
+    //const char* root_1_min_ext_temp_created_at = root_1_min_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+    //int root_1_min_ext_temp_entry_id = root_1_min_ext_temp["entry_id"]; // 17526
+    tempExtMin = atof(root_1_min_ext_temp["field2"]); // "99"
+    
+    JsonObject& root_2_ext_temp = root_[2]["ext_temp"];
+    //const char* root_2_ext_temp_created_at = root_2_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
+    //int root_2_ext_temp_entry_id = root_2_ext_temp["entry_id"]; // 17526
+    tempExtCurr = atof(root_2_ext_temp["field1"]); // "26.60"
+            
     Serial.print(tempIntMax);
     Serial.print("    ");
     Serial.print(tempIntMin);
@@ -306,7 +312,7 @@ tempExtCurr = atof(root_2_ext_temp["field1"]); // "26.60"
     Serial.println(tempExtMin);
 }
 
-void displayTemperature(){
+void displayTemperature(bool update){
   // INTERIOR---------------------------------------------------------------------------------------------------------------------
   //------------------------------------------------------------------------------------------------------------------------------
   // CURRENT
@@ -320,7 +326,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempIntCurr)));
   display.print("*C");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
 
 
   // MAX 
@@ -334,7 +341,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempIntMax)));
   display.print("*");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
 
 
   
@@ -349,7 +357,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempIntMin)));
   display.print("*");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
 
   
   // Humidity 
@@ -363,7 +372,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(humIntCurr)));
   display.print("%");
-  display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
 
   
   // EXTERIOR --------------------------------------------------------------------------------------------------------------------
@@ -380,7 +390,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempExtCurr)));
   display.print("*C");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
 
 
   // MAX 
@@ -394,7 +405,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempExtMax)));
   display.print("*");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
 
 
   
@@ -409,7 +421,8 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(tempExtMin)));
   display.print("*");
-  display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height+2, true);
   
   // Humidity 
   cursor_x = 310;
@@ -422,11 +435,13 @@ void displayTemperature(){
   display.setCursor(cursor_x, cursor_y);
   display.print(String(round(humExtCurr)));
   display.print("%");
-  display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
+  if(update)
+    display.updateWindow(cursor_x+3, cursor_y - height, width, height+2, true);
+    
 }
 
 void drawBackground(){
-   display.drawPicture(image_data_background, sizeof(image_data_background));
+   display.drawBitmap(image_data_background,0,0, GxEPD_WIDTH, GxEPD_HEIGHT, GxEPD_WHITE);
   //delay(5000);
 }
 
@@ -442,16 +457,14 @@ void drawNoWifi(){
 }
 
 
-void displayTime(){
- //  display.fillRect(150, 100, 100, 200, GxEPD_WHITE);
-    //display.fillRect(114,75, 210, 1, GxEPD_WHITE);
+void displayTime(bool update){
     int cursor_x = 95;
     int cursor_y = 170;
     int width = 210;
     int height = 56;
-    display.fillRect(cursor_x,cursor_y-height, width, height, GxEPD_WHITE);
-  display.setTextColor(GxEPD_BLACK);
   display.setFont(&Roboto_Black_72); // hauteur: 55
+  display.setTextColor(GxEPD_BLACK);
+    display.fillRect(cursor_x,cursor_y-height, width, height, GxEPD_WHITE);
   display.setCursor(cursor_x, cursor_y);
   if (cHour < 10) {
       display.print("0");
@@ -463,17 +476,20 @@ void displayTime(){
   }
   display.print(cMin);
 
-  display.updateWindow(cursor_x, cursor_y-height, width, height, true);
+  if(update){
+    Serial.println("Update time");
+    display.updateWindow(cursor_x,cursor_y-height, width, height, true);
+  }
 
 }
 
-void updateDate(){
+void updateDate(bool update){
   int cursor_x = 115;
   int cursor_y = 95;
   int width = 170;
   int height = 30;
   int negHeight = 10;
-  display.fillRect(cursor_x,cursor_y - height, width, height+negHeight, GxEPD_WHITE);
+  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
   display.setTextColor(GxEPD_BLACK);
   display.setFont(&FreeMonoBold12pt7b);
   display.setCursor(cursor_x, cursor_y);
@@ -488,11 +504,12 @@ void updateDate(){
   display.print(MONTHS[cMonth]);
   display.print(" ");
   display.print(cYear);
-  display.updateWindow(cursor_x, cursor_y - height, width, height + negHeight, true);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height + negHeight, true);
 }
 
 
-void getTime() {
+/*void getTime() {
 
   http.setTimeout(10000);
   http.begin(timeUrl);
@@ -512,7 +529,7 @@ void getTime() {
     Serial.println(httpCode);
   }
   http.end();
-}
+}*/
 
 void parseTime(String date) {
   int index = date.indexOf(':');
@@ -598,4 +615,5 @@ void initWifi() {
 
   // Printing the ESP IP address
   Serial.println(WiFi.localIP());
+  delay(2000);
 }
