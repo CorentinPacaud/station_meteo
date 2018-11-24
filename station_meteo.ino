@@ -1,3 +1,21 @@
+/*
+ * 
+ * SCREEN
+ * BUSY (violet) => D2
+ * RST (blanc)   => D4
+ * DC (vert)     => D3
+ * CS (orange)   => D8
+ * CLK (jaune)   => D5
+ * DIN (bleu)    => D7
+ * GND (noir)    => gnd
+ * VCC (rouge)   => 3.3v
+ * 
+ * DHT22
+ * DATA => D1
+ * 
+ */
+
+
 extern "C" {
   #include "user_interface.h" // this is for the RTC memory read/write functions
 }
@@ -28,13 +46,17 @@ extern "C" {
 #include "font36.h"
 #include "background.c"
 
-#include "DHT.h"
+//#include "DHT.h"
+#include "DHTesp.h"
 
 #define DHTPIN 5     // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
 
 #include<SPI.h>
 
+#define DEBUG true
+
+  
 typedef struct {
   // min, hour, d,m,y
   uint32_t minutes;
@@ -63,12 +85,16 @@ const char * headerKeys[] = {"Date"};
 const unsigned int GMT_D = 1;
 unsigned int cHour = 0;
 unsigned int cMin = 0;
+unsigned int cDayStr = 0;
 unsigned int cDay = 1;
 unsigned int cMonth = 1;
 unsigned int cYear = 1;
 
 const String MONTHS[] = {"Jan", "Fev", "Mars","Avril", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"};
 const String HEADERSMONTHS[]        = {"Jan" , "Feb" , "Mar" , "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+const String DAYS[] = {"Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"};
+const int daySpaces[] ={30,0,0,30,0,0,0}; // Espace pour centrer le text. 
+const String HEADERSDAYS[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" , "Sun"};
 
 bool fillRected = false;
 
@@ -85,17 +111,30 @@ float tempExtMin = 0.0f;
 float humIntCurr = 0.0f;
 float humExtCurr = 99.0f;
 
-
+int weather = -1; //0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 = brouillard;  5 = nuages; 6 = soleil;
+String sunset = "00:00";
+String sunrise = "00:00";
 bool startUp = true;
 
-DHT dht(DHTPIN, DHTTYPE);
-  unsigned long currentMillis;
+//DHT dht(DHTPIN, DHTTYPE);
+
+DHTesp dht;
+unsigned long currentMillis;
 
 void setup() {
+
+  // SWITCH OFF WIFI
+  WiFi.forceSleepBegin();
+  yield();
+  
+  #ifndef DEBUG
+  currentMillis = millis();
+  Serial.println(" PROD ");
+  #endif
+  
   Serial.begin(115200);
   Serial.println();
   Serial.println("setup");
-  initWifi();
 
   display.init(115200); // enable diagnostic output on Serial
 
@@ -103,9 +142,11 @@ void setup() {
   
   int i = 0;
   //display.update();
+  dht.setup(5, DHTesp::DHT22); // Connect DHT sensor to GPIO 17
 
   Serial.println("setup done");
   checkStart();
+
 }
 
 //TODO 
@@ -117,7 +158,12 @@ void setup() {
 
 void loop() {
    Serial.println("LOOP-----------------------------------------------------------------------");
-  currentMillis = millis();
+   
+  #ifdef DEBUG
+    currentMillis = millis();
+    Serial.println(" DEBUG ");
+  #endif
+  
     if(startUp){
       //getTime();
       Serial.println("STARTUP");
@@ -134,8 +180,12 @@ void loop() {
        
     // Display and Send temp every 5 min;
     if(cMin % 5 == 0 || startUp){
+      initWifi();
       readTemperature();
       getInfo();
+      
+      WiFi.forceSleepBegin(); // Switch off wifi
+      yield();
     }
    if(startUp || cMin == 0 || cMin % 5 == 0){
       Serial.println("Draw background");
@@ -144,6 +194,8 @@ void loop() {
       displayTemperature(false);
       Serial.println("BIG UPDATE");
       displayTime(false);
+      displayWeather(false);
+      displaySunSetRise(false);
       display.update();
       startUp = false;
       //PRESET FOR PARTIAL UPDATE !
@@ -153,9 +205,19 @@ void loop() {
       //display.update();
     }
     saveData();
-   //ESP.deepSleep((60000-(millis()-currentMillis))*1000);
-   unsigned long MIN = 15000UL;
-   delay(MIN-(millis()-currentMillis));
+    
+   #ifndef DEBUG
+     ESP.deepSleep((60000-(millis()-currentMillis))*1000, WAKE_RFCAL);
+     yield();
+   #else
+     int timeElapsed = millis()-currentMillis;
+     timeElapsed = 60 - (timeElapsed / 1000);
+     Serial.print("Time elapsed : ");
+     Serial.println(timeElapsed);
+     for(int i = 0;i<timeElapsed ; i++){
+        delay(1000);
+     }
+   #endif
 }
 
 void checkStart(){
@@ -192,32 +254,33 @@ void saveData(){
   rtcValues.days = cDay;
   rtcValues.months = cMonth;
   rtcValues.years = cYear;
-  Serial.print("Data saved: ");
-  Serial.print(rtcValues.minutes);
-  Serial.print(", ");
-  Serial.print(rtcValues.hours);
-  Serial.print(", ");
-  Serial.print(rtcValues.days);
-  Serial.print(", ");
-  Serial.print(rtcValues.months);
-  Serial.print(", ");
-  Serial.println(rtcValues.years); 
+  #ifdef DEBUG
+    Serial.print("Data saved: ");
+    Serial.print(rtcValues.minutes);
+    Serial.print(", ");
+    Serial.print(rtcValues.hours);
+    Serial.print(", ");
+    Serial.print(rtcValues.days);
+    Serial.print(", ");
+    Serial.print(rtcValues.months);
+    Serial.print(", ");
+    Serial.println(rtcValues.years); 
+  #endif
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcValues, sizeof(rtcValues));
 }
 
 void readTemperature(){
-    humIntCurr = dht.readHumidity();
+  
+    humIntCurr = dht.getHumidity();
     Serial.println("H:");
     Serial.println(humIntCurr);
     // Read temperature as Celsius (the default)
-    tempIntCurr = dht.readTemperature();
-    // Read temperature as Fahrenheit (isFahrenheit = true)
-    float f = dht.readTemperature(true);
-
+    tempIntCurr = dht.getTemperature();
     // Check if any reads failed and exit early (to try again).
     if (isnan(tempIntCurr) || isnan(tempIntCurr) || isnan(tempIntCurr)) {
       Serial.println("Failed to read from DHT sensor!");
-      
+      tempIntCurr = 99;
+      humIntCurr = 99;
       return;
     }
     Serial.println("T:");
@@ -267,7 +330,7 @@ void getInfo(){
 }
 
 void parseLast24HInTemp(String data){
-   const size_t bufferSize = JSON_ARRAY_SIZE(3) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + 5*JSON_OBJECT_SIZE(3) + 400;
+    const size_t bufferSize = JSON_ARRAY_SIZE(4) + 2*JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + 6*JSON_OBJECT_SIZE(3) + 450;
     DynamicJsonBuffer jsonBuffer(bufferSize);
     
     JsonArray& root = jsonBuffer.parseArray(data);
@@ -298,18 +361,34 @@ void parseLast24HInTemp(String data){
     //const char* root_2_ext_temp_created_at = root_2_ext_temp["created_at"]; // "2018-10-14T21:32:40Z"
     //int root_2_ext_temp_entry_id = root_2_ext_temp["entry_id"]; // 17526
     tempExtCurr = atof(root_2_ext_temp["field1"]); // "26.60"
-            
-    Serial.print(tempIntMax);
-    Serial.print("    ");
-    Serial.print(tempIntMin);
-    Serial.print("    ");
-    Serial.print(tempIntCurr);
-    Serial.print("    ");
-    Serial.print(tempExtCurr);
-    Serial.print("    ");
-    Serial.print(tempExtMax);
-    Serial.print("    ");
-    Serial.println(tempExtMin);
+
+    JsonObject& root_3_weather = root_[3]["weather"];
+    weather = root_3_weather["weather"]; // "4"
+    const char* cSunset = root_3_weather["sunset"];
+    sunset = String(cSunset); // "17:02"
+    const char* cSunrise = root_3_weather["sunrise"];
+    sunrise = String(cSunrise); // "7:50"
+
+
+    #ifdef DEBUG
+      Serial.print(tempIntMax);
+      Serial.print("    ");
+      Serial.print(tempIntMin);
+      Serial.print("    ");
+      Serial.print(tempIntCurr);
+      Serial.print("    ");
+      Serial.print(tempExtCurr);
+      Serial.print("    ");
+      Serial.print(tempExtMax);
+      Serial.print("    ");
+      Serial.println(tempExtMin);
+      Serial.print("weather: ");
+      Serial.print(weather);
+      Serial.print(" sunset: ");
+      Serial.print(sunset);
+      Serial.print("  sunrise: ");
+      Serial.println(sunrise);
+   #endif
 }
 
 void displayTemperature(bool update){
@@ -333,7 +412,7 @@ void displayTemperature(bool update){
   // MAX 
   cursor_x = 25;
   cursor_y = 130;
-  width = 50;
+  width = 45;
   height = 20;
   display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
   display.setTextColor(GxEPD_WHITE);
@@ -349,7 +428,7 @@ void displayTemperature(bool update){
   // MIN 
   cursor_x = 25;
   cursor_y = 175;
-  width = 50;
+  width = 45;
   height = 20;
   display.fillRect(cursor_x-5,cursor_y - height, width+10, height+2, GxEPD_BLACK);
   display.setTextColor(GxEPD_WHITE);
@@ -427,7 +506,7 @@ void displayTemperature(bool update){
   // Humidity 
   cursor_x = 310;
   cursor_y = 230;
-  width = 60;
+  width = 55;
   height = 30;
   display.fillRect(cursor_x - 5,cursor_y - height, width + 15, height+2, GxEPD_BLACK);
   display.setTextColor(GxEPD_WHITE);
@@ -483,15 +562,63 @@ void displayTime(bool update){
 
 }
 
-void updateDate(bool update){
+void displayWeather(bool update){
+  //0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 = brouillard;  5 = nuages; 6 = soleil;
   int cursor_x = 115;
-  int cursor_y = 95;
-  int width = 170;
+  int cursor_y = 260;
+  int width = 220;
+  int height = 30;
+  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
+  display.setTextColor(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  String s;
+  if(weather == 0)
+    s = "Orage";
+  else if(weather == 1)
+    s = "Bruine";
+  else if(weather == 2)
+    s = "Pluie";
+  else if(weather == 3)
+    s = "Neige";
+  else if(weather == 4)
+    s = "Brouillard";
+  else if(weather == 5)
+    s = "Nuages";
+  else if(weather == 6)
+    s = "Soleil";
+  else s = "Erreur";
+  display.print(s);
+}
+
+void displaySunSetRise(bool update){
+  //Sunrise
+  int cursor_x = 5;
+  int cursor_y = 282;
+  int width = 70;
+  int height = 20;
+  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
+  display.setTextColor(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(sunrise);
+
+  cursor_x = 290;
+  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(sunset);
+}
+
+void updateDate(bool update){
+  //DISPLAY DATE ( DD MMM YYYY )
+  int cursor_x = 85;
+  int cursor_y = 35;
+  int width = 220;
   int height = 30;
   int negHeight = 10;
   display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
   display.setTextColor(GxEPD_BLACK);
-  display.setFont(&FreeMonoBold12pt7b);
+  display.setFont(&FreeMonoBold18pt7b);
   display.setCursor(cursor_x, cursor_y);
   if (cDay < 10) {
      display.print("0");
@@ -504,8 +631,23 @@ void updateDate(bool update){
   display.print(MONTHS[cMonth]);
   display.print(" ");
   display.print(cYear);
+
   if(update)
-    display.updateWindow(cursor_x, cursor_y - height, width, height + negHeight, true);
+    display.updateWindow(cursor_x, cursor_y - height, width, height, true);
+
+// UPDATE DAY NAME
+   cursor_x = 115 + daySpaces[cDayStr] ; // init for "Dimanche"
+   cursor_y = 85;
+   width = 170;
+   height = 25;
+   negHeight = 10;
+  display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
+  display.setTextColor(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold18pt7b);
+  display.setCursor(cursor_x, cursor_y);
+  display.print(DAYS[cDayStr]);
+  if(update)
+    display.updateWindow(cursor_x, cursor_y - height, width, height, true);
 }
 
 
@@ -531,23 +673,6 @@ void updateDate(bool update){
   http.end();
 }*/
 
-void parseTime(String date) {
-  int index = date.indexOf(':');
-  Serial.println("Date:" + date);
-  if (index >= 0) {
-    //Serial.println("Index:" + String(index));
-    cHour = ((date.charAt(index - 2) - '0') * 10) + (date.charAt(index - 1) - '0');
-    cMin = ((date.charAt(index + 1) - '0') * 10) + (date.charAt(index + 2) - '0');
-    Serial.println("HOUR:" + String(cHour) + "  Min:" + String(cMin));
-  }
-  int indexD = date.indexOf('.');
-  if (indexD >= 0) {
-    cDay = ((date.charAt(0) - '0') * 10) + (date.charAt(1) - '0');
-    cMonth = ((date.charAt(3) - '0') * 10) + (date.charAt(4) - '0');
-    cYear = ((date.charAt(6) - '0') * 1000) +((date.charAt(7) - '0') * 100) +((date.charAt(8) - '0') * 10)+ (date.charAt(9) - '0');
-  }
-}
-
 
 void parseTime2(String date){
   //Tue, 02 Oct 2018 21:22:57 GMT
@@ -565,6 +690,18 @@ void parseTime2(String date){
   {
     
   Serial.println(pch);
+    if(i == 0){// jourStr
+      String dayStr = String(pch);
+      dayStr.remove(3);
+      int j = 0;
+      while(j<7){
+        if(HEADERSDAYS[j] == dayStr){
+          cDayStr = j;
+          break;
+        }
+        j++;
+      }
+    }
     if(i == 1) // jour;
       cDay = atoi(pch);
     if(i == 2){// MOIS
@@ -590,11 +727,15 @@ void parseTime2(String date){
    pch = strtok (NULL, " :");
   }
   Serial.println("HOUR:" + String(cHour) + "  Min:" + String(cMin));
-  Serial.println("DAY:" + String(cDay) + "  Month:" + String(cMonth) + "  YEAR:" + String(cYear));
+  Serial.println("Day:"+DAYS[cDayStr]+"  DAY:" + String(cDay) + "  Month:" + String(cMonth) + "  YEAR:" + String(cYear));
 }
 
 
 void initWifi() {
+  Serial.println("Restart wifi");
+  WiFi.forceSleepWake();
+  WiFi.mode(WIFI_STA);
+  
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
