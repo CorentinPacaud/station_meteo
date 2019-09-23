@@ -1,30 +1,23 @@
-To start the project on a ESP8266, you need to create a config.h file containg the following param :
 
-	 #define SSID "YOU_SSID"
-	 #define SSID_PASSWORD "YOU_PASSWORD"
-                       
-	 #define OPENWEATHER_URL "http://api.openweathermap.org/data/2.5/weather?q=<yourCity>&units=metric&APPID=<yourAppId>"
-	 #define TIME_URL "http://worldtimeapi.org/api/ip"
-	 
-	 #define THINGSPEAK_POST "http://api.thingspeak.com/update?api_key=<yourKey>"
-	 #define THINGSPEAK_GETLAST_FIELD2 "http://api.thingspeak.com/channels/<channelId>/fields/2/last.csv?key=<yourKey>" // EXT TEMP
-	 #define THINGSPEAK_GETLAST_FIELD4 "http://api.thingspeak.com/channels/<channelId>/fields/4/last.csv?key=<yourKey>" // WET OUT
-	 #define THINGSPEAK_GET24H_FIELD1 "http://api.thingspeak.com/channels/<channelId>/fields/1.csv?key=<yourKey>&timezone=Europe/Paris&results=288"
-	 #define THINGSPEAK_GET24H_FIELD2 "http://api.thingspeak.com/channels/<channelId>/fields/2.csv?key=<yourKey>&timezone=Europe/Paris&results=288"
+# WEATHER STATION - E-INK SCREEN
 
- 
- You also need to create an account on thingspeak and create 1 channel and 4 field : 1: Indoor temp, 2: outdoor temp, 3: indoor humidity, 4: outdoor humidity
- 
- SCREEN
- -	BUSY (violet) => D2
- -	RST (blanc)   => D4
- -	DC (vert)     => D3
- -	CS (orange)   => D8
- -	CLK (jaune)   => D5
- -	DIN (bleu)    => D7
- -	GND (noir)    => gnd
- -	VCC (rouge)   => 3.3v
- 
- DHT22 :
- DATA => D1
- 
+## Introction
+
+This project requires **NO 3D printer**, no particular tool other than a soldering iron.
+
+**Parts needed** : 
+- ESP8266 or ESP32 (x2) : ~4$
+- 18650 li-ion batteries (x4) : free for me (recycled from old laptop battery);
+- some cables, resistances...
+- TP4056 Module (microUSB charger) (x2) : ~0.30$ x 2;
+- a piece of acrylique plate : I use 2mm but recommand 4mm.
+- Some nylon M3 spacers : ~3$ a box.
+- 4.2 e-ink screen from waveshare : ~30$
+- a good 4.0V -> 3.3V converter like HT7333
+- a small plastic box (9cm x 6.5cm x 3cm) for outdoor sensor.
+- DHT22 (or DHT22) (x2) : ~2.45$ each
+
+**Optionnal part** : 
+- triple 18650 li-ion holder: x1
+- single 18650 li-ion holder: x1
+

@@ -1,3 +1,14 @@
+/**
+ * Before starting the project, you need to create a config.h file here containing  the following code : 
+ * 
+ * #define SSID "<YOUR_SSID>"
+ * #define SSID_PASSWORD "YOUR_SSID_PASSWORD"
+ * #define THINGSPEAK_POST "http://api.thingspeak.com/update?api_key=<WRITE_KEY>"
+ * 
+ * 
+ * 
+ * */
+
 #include "DHTesp.h"
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -8,7 +19,6 @@
 DHTesp dht;
 HTTPClient http;
 
-
 unsigned long currentMillis;
 
 void setup()
@@ -18,9 +28,9 @@ void setup()
   Serial.println("Start");
   // Autodetect is not working reliable, don't use the following line
   // dht.setup(17);
-  // use this instead: 
+  // use this instead:
   dht.setup(5, DHTesp::DHT22); // Connect DHT sensor to GPIO 5
-  
+
   initWifi();
 }
 
@@ -46,38 +56,42 @@ void loop()
   HTTPClient http;
   http.setTimeout(5000);
   http.begin(String(THINGSPEAK_POST) + "&field2=" + tempExtCurr + "&field4=" + humExtCurr);
-  int httpCode = http.GET();   //Send the request
-  Serial.print("Status code : "); 
+  int httpCode = http.GET(); //Send the request
+  Serial.print("Status code : ");
   Serial.println(httpCode);
-  if (httpCode == 200) {
+  if (httpCode == 200)
+  {
     // SUCCESS
     Serial.println("POST T SUCCESS");
-  } else {
+  }
+  else
+  {
     Serial.println("POST T Error : " + httpCode);
   }
-  http.end();  //Close connection
+  http.end(); //Close connection
   delay(1000);
-  
-      
-   #ifndef DEBUG
-     ESP.deepSleep((60000-(millis()-currentMillis))*1000+240000*1000);
-   #else
-     int timeElapsed = millis()-currentMillis;
-     timeElapsed = 60 - (timeElapsed / 1000);
-     Serial.print("Time elapsed : ");
-     Serial.println(timeElapsed);
-     for(int i = 0;i<300 ; i++){
-        delay(1000);
-        if(i%60 == 0){
-          Serial.print("--->min : ");
-          Serial.println(i/60);
-        }
-     }
-   #endif
+
+#ifndef DEBUG
+  ESP.deepSleep((60000 - (millis() - currentMillis)) * 1000 + 240000 * 1000);
+#else
+  int timeElapsed = millis() - currentMillis;
+  timeElapsed = 60 - (timeElapsed / 1000);
+  Serial.print("Time elapsed : ");
+  Serial.println(timeElapsed);
+  for (int i = 0; i < 300; i++)
+  {
+    delay(1000);
+    if (i % 60 == 0)
+    {
+      Serial.print("--->min : ");
+      Serial.println(i / 60);
+    }
+  }
+#endif
 }
 
-
-void initWifi() {  
+void initWifi()
+{
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(SSID);
@@ -85,7 +99,8 @@ void initWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, SSID_PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
     Serial.print(".");
   }
@@ -101,4 +116,3 @@ void initWifi() {
   Serial.println(WiFi.localIP());
   delay(1000);
 }
-
