@@ -1,9 +1,24 @@
 
+### <<WORK IN PROGRESS>>
+
 # WEATHER STATION - E-INK SCREEN
 
-## Introction
+![Weather Station](weather_station.jpg)
+
+## Introduction
 
 This project requires **NO 3D printer**, no particular tool other than a soldering iron.
+It doesn't use RTC module, basically, juste ESPs, screen and sensors.
+
+This weather station can display : 
+- Current time / date
+- Indoor and outdoor :
+  - current temperature
+  - current humidity
+  - max/min temperature from 24h
+- current weather
+- time of sunrise and sunset
+
 
 **Parts needed** : 
 - ESP8266 or ESP32 (x2) : ~4$
@@ -20,4 +35,3 @@ This project requires **NO 3D printer**, no particular tool other than a solderi
 **Optionnal part** : 
 - triple 18650 li-ion holder: x1
 - single 18650 li-ion holder: x1
-
