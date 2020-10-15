@@ -69,8 +69,8 @@ extern "C"
 
 #include <SPI.h>
 
-#define DEBUG
-//#define PROD
+//#define DEBUG
+#define PROD
 
 #ifdef __arm__
 // should use uinstd.h to define sbrk but Due causes a conflict
@@ -99,6 +99,20 @@ typedef struct
 	uint32_t days;
 	uint32_t months;
 	uint32_t years;
+	uint32_t day;
+	uint32_t weather;
+	uint32_t tempIntCurr;
+	uint32_t tempIntMax;
+	uint32_t tempIntMin;
+	uint32_t tempExtCurr;
+	uint32_t tempExtMax;
+	uint32_t tempExtMin;
+	uint32_t humIntCurr;
+	uint32_t humExtCurr;
+	uint32_t sunriseHour;
+	uint32_t sunriseMin;
+	uint32_t sunsetHour;
+	uint32_t sunsetMin;
 } rtcStore;
 
 rtcStore rtcValues;
@@ -125,26 +139,29 @@ unsigned int cYear = 1;
 
 const String MONTHS[] = {"Jan", "Fev", "Mars", "Avril", "Mai", "Juin", "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"};
 //const String HEADERSMONTHS[]        = {"Jan" , "Feb" , "Mar" , "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-const String DAYS[] = {"DIMANCHE", "LUNDI", "MARDI", "Mercredi", "JEUDI", "VENDREDI", "SAMEDI"};
+const String DAYS[] = {"DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"};
 const int daySpaces[] = {0, 30, 30, 15, 30, 10, 20}; // Espace pour centrer le text. lun,mar,...
 //const String HEADERSDAYS[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" , "Sun"};
 
 const GFXfont *f = &FreeMonoBold9pt7b;
 
-float tempIntCurr = 0.0f;
-float tempIntMax = 0.0f;
-float tempIntMin = 0.0f;
-
-float tempExtCurr = 0.0f;
-float tempExtMax = 0.0f;
-float tempExtMin = 0.0f;
-
-float humIntCurr = 0.0f;
-float humExtCurr = 99.0f;
+int tempIntCurr = 0;
+int tempIntMax = 0;
+int tempIntMin = 0;
+int tempExtCurr = 0;
+int tempExtMax = 0;
+int tempExtMin = 0;
+int humIntCurr = 0;
+int humExtCurr = 99;
 
 int weather = -1; //0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 = brouillard;  5 = nuages; 6 = soleil;
-String sunset = "00:00";
-String sunrise = "00:00";
+
+int sunsetHour = 0;
+int sunsetMin = 0;
+
+int sunriseHour = 0;
+int sunriseMin = 0;
+
 bool startUp = true;
 
 int firstRestart = 0;
@@ -157,6 +174,10 @@ unsigned long currentMillis;
 void setup()
 {
 
+	Serial.begin(115200);
+
+	display.init(115200); // enable diagnostic output on Serial
+	display.setRotation(0);
 	// SWITCH OFF WIFI
 	WiFi.forceSleepBegin();
 	yield();
@@ -166,21 +187,16 @@ void setup()
 	Serial.println(" PROD ");
 #endif
 
-	Serial.begin(115200);
 	Serial.println();
 	Serial.println("setup");
-
-	display.init(115200); // enable diagnostic output on Serial
 
 	//display.fillScreen(GxEPD_BLACK);
 
 	int i = 0;
-	//display.update();
 	dht.setup(5, DHTesp::DHT22); // Connect DHT sensor to GPIO 17
 
 	Serial.println("setup done");
 	checkStart();
-	display.setRotation(0);
 }
 
 //TODO
@@ -222,6 +238,7 @@ void loop()
 	//bool bigRefresh = startUp;
 	if (bigRefresh)
 	{
+		saveData();
 		initWifi();
 		readTemperature();
 
@@ -265,9 +282,15 @@ void loop()
 	}
 	else
 	{
-		//display.fillRect(80, 100, 240, 97, GxEPD_WHITE);
+		//display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
+		drawBackground();
+		updateDate(false);
+		displayTemperature(false);
+		displayWeather(false);
+		displaySunSetRise(false);
+		display.fillRect(80, 100, 240, 97, GxEPD_WHITE);
+		displayTime(false);
 		display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
-		displayTime(true);
 		//display.update();
 	}
 	//display.powerDown();
@@ -290,8 +313,8 @@ void loop()
 	String rstReason = ESP.getResetReason();
 
 	// Don't go to Deep sleep for first 5 min if external restart.
-	// This is usefull to easily upload code when in deepsleep mod, just press the restart btn and you have 5 min to upload cod)
-	if (rstReason == "External System" && firstRestart < 5)
+	// This is usefull to easily upload code when in deepsleep mod, just press the restart btn and you have 5 min to upload code)
+	if (rstReason == "External System" && firstRestart < 0)
 	{
 		Serial.println("First Restart");
 		for (int i = 0; i < timeElapsed; i++)
@@ -326,12 +349,7 @@ void checkStart()
 		// INIT RTC_MEM
 		Serial.println("Init RTC MEM");
 		startUp = true;
-		rtcValues.minutes = cMin;
-		rtcValues.hours = cHour;
-		rtcValues.days = cDay;
-		rtcValues.months = cMonth;
-		rtcValues.years = cYear;
-		ESP.rtcUserMemoryWrite(0, (uint32_t *)&rtcValues, sizeof(rtcValues));
+		saveData();
 	}
 	else
 	{
@@ -345,6 +363,20 @@ void checkStart()
 			cDay = rtcValues.days;
 			cMonth = rtcValues.months;
 			cYear = rtcValues.years;
+			cDayStr = rtcValues.day;
+			tempExtCurr = rtcValues.tempExtCurr;
+			tempExtMax = rtcValues.tempExtMax;
+			tempExtMin = rtcValues.tempExtMin;
+			tempIntCurr = rtcValues.tempIntCurr;
+			tempIntMax = rtcValues.tempIntMax;
+			tempIntMin = rtcValues.tempIntMin;
+			humExtCurr = rtcValues.humExtCurr;
+			humIntCurr = rtcValues.humIntCurr;
+			sunriseHour = rtcValues.sunriseHour;
+			sunriseMin = rtcValues.sunriseMin;
+			sunsetHour = rtcValues.sunsetHour;
+			sunsetMin = rtcValues.sunsetMin;
+			weather = rtcValues.weather;
 		}
 	}
 }
@@ -356,6 +388,20 @@ void saveData()
 	rtcValues.days = cDay;
 	rtcValues.months = cMonth;
 	rtcValues.years = cYear;
+	rtcValues.tempExtCurr = tempExtCurr;
+	rtcValues.tempExtMax = tempExtMax;
+	rtcValues.tempExtMin = tempExtMin;
+	rtcValues.tempIntCurr = tempIntCurr;
+	rtcValues.tempIntMax = tempIntMax;
+	rtcValues.tempIntMin = tempIntMin;
+	rtcValues.humExtCurr = humExtCurr;
+	rtcValues.humIntCurr = humIntCurr;
+	rtcValues.sunriseHour = sunriseHour;
+	rtcValues.sunriseMin = sunriseMin;
+	rtcValues.sunsetHour = sunsetHour;
+	rtcValues.sunsetMin = sunsetMin;
+	rtcValues.weather = weather;
+
 #ifdef DEBUG
 	Serial.print("Data saved: ");
 	Serial.print(rtcValues.minutes);
@@ -375,19 +421,20 @@ void readTemperature()
 {
 	Serial.println("Send temp int");
 	HTTPClient http;
-	humIntCurr = dht.getHumidity();
+	humIntCurr = int(round(dht.getHumidity()));
 	Serial.println("H:");
 	Serial.println(humIntCurr);
 	// Read temperature as Celsius (the default)
-	tempIntCurr = dht.getTemperature();
+	float temp = dht.getTemperature();
 	// Check if any reads failed and exit early (to try again).
-	if (isnan(tempIntCurr) || isnan(tempIntCurr) || isnan(tempIntCurr))
+	if (isnan(temp) || isnan(temp) || isnan(temp))
 	{
 		Serial.println("Failed to read from DHT sensor!");
 		tempIntCurr = 99;
 		humIntCurr = 99;
 		return;
 	}
+	tempIntCurr = int(round(temp));
 	Serial.println("T:");
 	Serial.println(tempIntCurr);
 
@@ -429,7 +476,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold18pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempIntCurr))));
+	display.print(String(tempIntCurr));
 	display.print("*C");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -443,7 +490,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold12pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempIntMax))));
+	display.print(String(tempIntMax));
 	display.print("*");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -457,7 +504,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold12pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempIntMin))));
+	display.print(String(tempIntMin));
 	display.print("*");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -471,7 +518,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold18pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(humIntCurr))));
+	display.print(String(humIntCurr));
 	display.print("%");
 	if (update)
 		display.updateWindow(cursor_x + 3, cursor_y - height, width, height + 2, true);
@@ -488,7 +535,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold18pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempExtCurr))));
+	display.print(String(tempExtCurr));
 	display.print("*C");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -502,7 +549,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold12pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempExtMax))));
+	display.print(String(tempExtMax));
 	display.print("*");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -516,7 +563,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold12pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(tempExtMin))));
+	display.print(String(tempExtMin));
 	display.print("*");
 	if (update)
 		display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
@@ -530,7 +577,7 @@ void displayTemperature(bool update)
 	display.setTextColor(GxEPD_WHITE);
 	display.setFont(&FreeMonoBold18pt7b);
 	display.setCursor(cursor_x, cursor_y);
-	display.print(String(int(round(humExtCurr))));
+	display.print(String(humExtCurr));
 	display.print("%");
 	if (update)
 		display.updateWindow(cursor_x + 3, cursor_y - height, width, height + 2, true);
@@ -545,14 +592,14 @@ void drawBackground()
 	display.fillRect(100, 201, 200, 99, GxEPD_WHITE);		// BACKGROUND TOP WHITE RECT (METEO)
 	display.fillRect(0, 250, GxEPD_WIDTH, 49, GxEPD_WHITE);		// BACKGROUND TOP WHITE RECT (SUNRISE, SUNSET)
 
-	display.drawBitmap(image_data_home, 10, 10, 40, 40, GxEPD_WHITE);       // BACKGROUND ICON HOME
-	display.drawBitmap(image_data_outdoor, 351, 10, 40, 40, GxEPD_WHITE);   // BACKGROUND ICON OUTDOOR
-	display.drawBitmap(image_data_tempMax, 6, 111, 11, 30, GxEPD_WHITE);    // BACKGROUND ICON MAX TEMP LEFT
-	display.drawBitmap(image_data_tempMin, 6, 158, 11, 30, GxEPD_WHITE);    // BACKGROUND ICON MIN TEMP LEFT
-	display.drawBitmap(image_data_tempMax, 385, 111, 11, 30, GxEPD_WHITE);  // BACKGROUND ICON MAX TEMP RIGHT
-	display.drawBitmap(image_data_tempMin, 385, 158, 11, 30, GxEPD_WHITE);  // BACKGROUND ICON MIN TEMP RIGHT
+	display.drawBitmap(image_data_home, 10, 10, 40, 40, GxEPD_WHITE);	// BACKGROUND ICON HOME
+	display.drawBitmap(image_data_outdoor, 351, 10, 40, 40, GxEPD_WHITE);	// BACKGROUND ICON OUTDOOR
+	display.drawBitmap(image_data_tempMax, 6, 111, 11, 30, GxEPD_WHITE);	// BACKGROUND ICON MAX TEMP LEFT
+	display.drawBitmap(image_data_tempMin, 6, 158, 11, 30, GxEPD_WHITE);	// BACKGROUND ICON MIN TEMP LEFT
+	display.drawBitmap(image_data_tempMax, 385, 111, 11, 30, GxEPD_WHITE);	// BACKGROUND ICON MAX TEMP RIGHT
+	display.drawBitmap(image_data_tempMin, 385, 158, 11, 30, GxEPD_WHITE);	// BACKGROUND ICON MIN TEMP RIGHT
 	display.drawBitmap(image_data_humidity, 375, 205, 20, 29, GxEPD_WHITE); // BACKGROUND ICON HUMIDITY RIGHT
-	display.drawBitmap(image_data_humidity, 6, 205, 20, 29, GxEPD_WHITE);   // BACKGROUND ICON HUMIDITY LEFT
+	display.drawBitmap(image_data_humidity, 6, 205, 20, 29, GxEPD_WHITE);	// BACKGROUND ICON HUMIDITY LEFT
 
 	//display.drawBitmap(image_data_background, posX, poxY, width, height, GxEPD_WHITE);
 	//display.drawBitmap(image_data_background, 0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, GxEPD_WHITE);
@@ -651,6 +698,10 @@ void displayWeather(bool update)
 
 void displaySunSetRise(bool update)
 {
+	String sunset = (sunsetHour < 10 ? "0" : "") + String(sunsetHour) + ":" + (sunsetMin < 10 ? "0" : "") + String(sunsetMin);
+	Serial.println("Sunset: " + sunset);
+	String sunrise = (sunriseHour < 10 ? "0" : "") + String(sunriseHour) + ":" + (sunriseMin < 10 ? "0" : "") + String(sunriseMin);
+	Serial.println("Sunrise: " + sunrise);
 	//Sunrise
 	int cursor_x = 5;
 	int cursor_y = 282;
@@ -754,6 +805,7 @@ void getTime()
 		deserializeJson(doc, json);
 		int day_of_week = doc["day_of_week"]; // 6
 		cDayStr = day_of_week;
+		rtcValues.day = cDayStr;
 		const char *datetime = doc["datetime"]; // "2019-08-31T02:12:43.056352+02:00"
 		String dateTimeStr = String(datetime);
 		int indexYear = dateTimeStr.indexOf("-");
@@ -779,7 +831,7 @@ void getTime()
 	http.end();
 }
 
-void getLastValue(String url, float *value)
+void getLastValue(String url, int *value)
 {
 	Serial.print("getLast : ");
 	HTTPClient http;
@@ -792,10 +844,10 @@ void getLastValue(String url, float *value)
 		// SUCCESS
 		Serial.println("Success get Last ");
 		int lastI = http.getString().lastIndexOf(',');
-		*value = -1.0f;
+		*value = -99;
 		if (lastI != http.getString().length())
 		{
-			*value = http.getString().substring(lastI + 1, http.getString().length()).toFloat();
+			*value = int(round(http.getString().substring(lastI + 1, http.getString().length()).toFloat()));
 			Serial.print("TempCurr");
 			Serial.println(*value);
 		}
@@ -862,11 +914,14 @@ void getSunWeather()
 		long timezone = doc["timezone"];   // 7200
 		DTime sunsetT, sunriseT;
 		sunsetT.setTimestamp(sys_sunset + timezone);
-		sunset = (sunsetT.hour < 10 ? "0" : "") + String(sunsetT.hour) + ":" + (sunsetT.minute < 10 ? "0" : "") + String(sunsetT.minute);
-		Serial.println("Sunset: " + sunset);
+		sunsetHour = (uint32_t)sunsetT.hour;
+		sunsetMin = (uint32_t)sunsetT.minute;
+
 		sunriseT.setTimestamp(sys_sunrise + timezone);
-		sunrise = (sunriseT.hour < 10 ? "0" : "") + String(sunriseT.hour) + ":" + (sunriseT.minute < 10 ? "0" : "") + String(sunriseT.minute);
-		Serial.println("Sunrise: " + sunrise);
+		sunriseHour = (uint32_t)sunriseT.hour;
+		sunriseMin = (uint32_t)sunriseT.minute;
+
+		Serial.printf("Sun : %d:%d - %d:%d", sunsetHour, sunsetMin, sunriseHour, sunriseMin);
 	}
 	else
 	{
@@ -876,7 +931,7 @@ void getSunWeather()
 	http.end(); //Close connection
 }
 
-void getMinMaxTemp(String url, float *maxTemp, float *minTemp)
+void getMinMaxTemp(String url, int *maxTemp, int *minTemp)
 {
 	Serial.print("getMinMaxTemp : ");
 	HTTPClient http;
@@ -898,7 +953,7 @@ void getMinMaxTemp(String url, float *maxTemp, float *minTemp)
 	http.end(); //Close connection
 }
 
-void getMaxMin(HTTPClient &http, float *tempMax, float *tempMin)
+void getMaxMin(HTTPClient &http, int *tempMax, int *tempMin)
 {
 	//int ssize =  http.getString().length();
 	//int line = 0;
@@ -920,7 +975,7 @@ void getMaxMin(HTTPClient &http, float *tempMax, float *tempMin)
 			String sTemp = line.substring(lastDelimiter + 1, iLine);
 			if (!sTemp.equals("nan"))
 			{
-				float temp = sTemp.toFloat();
+				float temp = int(round(sTemp.toFloat()));
 				minTemp = minTemp < temp ? minTemp : temp;
 				maxTemp = maxTemp > temp ? maxTemp : temp;
 			}
