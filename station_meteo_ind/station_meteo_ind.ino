@@ -277,12 +277,9 @@ void loop()
 		Serial.println("UDPATE !");
 		display.update();
 		startUp = false;
-		//PRESET FOR PARTIAL UPDATE !
-		//display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
 	}
 	else
 	{
-		//display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
 		drawBackground();
 		updateDate(false);
 		displayTemperature(false);
@@ -290,10 +287,9 @@ void loop()
 		displaySunSetRise(false);
 		display.fillRect(80, 100, 240, 97, GxEPD_WHITE);
 		displayTime(false);
-		display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, false);
-		//display.update();
+		display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
 	}
-	//display.powerDown();
+
 	saveData();
 
 	int timeElapsed = millis() - currentMillis;
@@ -326,6 +322,7 @@ void loop()
 	else
 	{
 		Serial.println("Start deepSleep");
+		display.powerDown();
 		ESP.deepSleep(timeElapsed * 1000000, WAKE_RFCAL);
 		yield();
 	}
@@ -653,6 +650,8 @@ void displayTime(bool update)
 		display.setFont(&Roboto_Black_72);
 		display.setTextColor(GxEPD_BLACK);
 		display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
+		display.updateWindow(box_x, box_y, box_w, box_h, true);
+		delay(500);
 		display.setCursor(box_x, cursor_y);
 		display.print(s);
 		display.updateWindow(box_x, box_y, box_w, box_h, true);
