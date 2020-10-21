@@ -285,8 +285,8 @@ void loop()
 		displayTemperature(false);
 		displayWeather(false);
 		displaySunSetRise(false);
-		display.fillRect(80, 100, 240, 97, GxEPD_WHITE);
-		displayTime(false);
+		display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
+		displayTime(true);
 		display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
 	}
 
@@ -597,10 +597,6 @@ void drawBackground()
 	display.drawBitmap(image_data_tempMin, 385, 158, 11, 30, GxEPD_WHITE);	// BACKGROUND ICON MIN TEMP RIGHT
 	display.drawBitmap(image_data_humidity, 375, 205, 20, 29, GxEPD_WHITE); // BACKGROUND ICON HUMIDITY RIGHT
 	display.drawBitmap(image_data_humidity, 6, 205, 20, 29, GxEPD_WHITE);	// BACKGROUND ICON HUMIDITY LEFT
-
-	//display.drawBitmap(image_data_background, posX, poxY, width, height, GxEPD_WHITE);
-	//display.drawBitmap(image_data_background, 0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, GxEPD_WHITE);
-	//delay(5000);
 }
 
 void drawWifi()
@@ -647,11 +643,11 @@ void displayTime(bool update)
 	}
 	if (update)
 	{
+		display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
 		display.setFont(&Roboto_Black_72);
 		display.setTextColor(GxEPD_BLACK);
-		display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
 		display.updateWindow(box_x, box_y, box_w, box_h, true);
-		delay(500);
+		//delay(500);
 		display.setCursor(box_x, cursor_y);
 		display.print(s);
 		display.updateWindow(box_x, box_y, box_w, box_h, true);
