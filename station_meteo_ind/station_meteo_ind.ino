@@ -252,8 +252,8 @@ void loop() {
           startUp = false;
      } else {
           display.fillScreen(GxEPD_WHITE);
-          display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
-	  delay(500);
+          //display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
+	  //delay(500);
           loadDataToDisplay();
 	  delay(500);
           display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
