@@ -47,9 +47,12 @@ extern "C" {
 #include <Adafruit_GFX.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
-#include <GxEPD.h>
+#include <GxEPD2_BW.h>
+//#include <GxEPD2_3C.h>
+//#include <GxEPD2_7C.h>
+//#include <GxEPD.h>
 #include <GxFont_GFX.h>
-#include <GxGDEW042T2/GxGDEW042T2.h> // 4.2" b/w    // 4.2" b/w 400 x 300 px
+//#include <GxGDEW042T2/GxGDEW042T2.h> // 4.2" b/w    // 4.2" b/w 400 x 300 px
 #include <GxIO/GxIO.h>
 #include <GxIO/GxIO_SPI/GxIO_SPI.h>
 #include <math.h>
@@ -125,7 +128,8 @@ rtcStore rtcValues;
 GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
                               // selected for default of GxEPD_Class
 // GxGDEP015OC1(GxIO& io, uint8_t rst = 2, uint8_t busy = 4);
-GxEPD_Class display(io); // default selection of D4(=2), D2(=4)
+GxEPD2_BW<GxEPD2_420, GxEPD2_420::HEIGHT> display(GxEPD2_420(/*CS=D8*/ SS, /*DC=D3*/ 0, /*RST=D4*/ 2, /*BUSY=D2*/ 4));
+//GxEPD_Class display(io); // default selection of D4(=2), D2(=4)
 
 const char *ssid = SSID;
 const char *password = SSID_PASSWORD;
@@ -222,6 +226,7 @@ void loop() {
          "---");
 
      currentMillis = millis();
+
 #ifdef DEBUG
      Serial.println(" DEBUG ");
 #endif
@@ -246,22 +251,16 @@ void loop() {
      if (bigRefresh) {
           Serial.println("BIG UPDATE");
           getRemoteData();
-          loadDataToDisplay();
-          displayTime(false);
-          display.update();
+          //display.update();
           startUp = false;
-     } else {
-          display.fillScreen(GxEPD_WHITE);
-          //display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
-	  //delay(500);
-          loadDataToDisplay();
-	  delay(500);
-          display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
-          // if (cMin % 2)
-          displayTime(true);
-          // yield();
-          // display.updateToWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT, true);
      }
+
+     display.setFullWindow();
+     loadDataToDisplay();
+     display.firstPage();
+     do {
+          loadDataToDisplay();
+     } while (display.nextPage());
 
      saveData();
 
@@ -289,7 +288,7 @@ void loop() {
           firstRestart++;
      } else {
           Serial.println("Start deepSleep");
-          display.powerDown();
+          display.powerOff();
           ESP.deepSleep(timeElapsed * 1000000, WAKE_RFCAL);
           yield();
      }
@@ -324,19 +323,19 @@ void loadDataToDisplay() {
      drawBackground();
      Serial.println("End Draw background");
      Serial.println("Draw date");
-     updateDate(false);
+     updateDate();
      Serial.println("END Draw date");
      Serial.println("Draw TEmp");
-     displayTemperature(false);
+     displayTemperature();
      Serial.println("End Draw TEmp");
      Serial.println("Draw Time");
-     //displayTime(false);
+     displayTime();
      Serial.println("End Draw TIME");
      Serial.println("Draw weather");
-     displayWeather(false);
+     displayWeather();
      Serial.println("End Draw weather");
      Serial.println("Draw Sunsrise");
-     displaySunSetRise(false);
+     displaySunSetRise();
      Serial.println("End Draw Sunsrise");
      Serial.println("UDPATE !");
 }
@@ -455,7 +454,7 @@ void readTemperature() {
      delay(1000);
 }
 
-void displayTemperature(bool update) {
+void displayTemperature() {
      // INTERIOR---------------------------------------------------------------------------------------------------------------------
      //------------------------------------------------------------------------------------------------------------------------------
      // CURRENT
@@ -470,8 +469,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempIntCurr));
      display.print("*C");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // MAX
      cursor_x = 25;
@@ -485,8 +482,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempIntMax));
      display.print("*");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // MIN
      cursor_x = 25;
@@ -500,8 +495,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempIntMin));
      display.print("*");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // Humidity
      cursor_x = 30;
@@ -515,9 +508,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(humIntCurr));
      display.print("%");
-     if (update)
-          display.updateWindow(cursor_x + 3, cursor_y - height, width, height + 2,
-                               true);
 
      // EXTERIOR
      // --------------------------------------------------------------------------------------------------------------------
@@ -535,8 +525,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempExtCurr));
      display.print("*C");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // MAX
      cursor_x = 330;
@@ -550,8 +538,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempExtMax));
      display.print("*");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // MIN
      cursor_x = 330;
@@ -565,8 +551,6 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(tempExtMin));
      display.print("*");
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height + 2, true);
 
      // Humidity
      cursor_x = 310;
@@ -580,13 +564,10 @@ void displayTemperature(bool update) {
      display.setCursor(cursor_x, cursor_y);
      display.print(String(humExtCurr));
      display.print("%");
-     if (update)
-          display.updateWindow(cursor_x + 3, cursor_y - height, width, height + 2,
-                               true);
 }
 
 void drawBackground() {
-     display.fillRect(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT,
+     display.fillRect(0, 0, display.width(), display.height(),
                       GxEPD_BLACK); // BACKGROUND BLACK
      display.fillRect(61, 0, 280, 50,
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (DATE)
@@ -596,24 +577,24 @@ void drawBackground() {
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (TIME)
      display.fillRect(100, 201, 200, 99,
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (METEO)
-     display.fillRect(0, 250, GxEPD_WIDTH, 49,
+     display.fillRect(0, 250, display.width(), 49,
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (SUNRISE, SUNSET)
 
-     display.drawBitmap(image_data_home, 10, 10, 40, 40,
+     display.drawBitmap(10, 10, image_data_home, 40, 40,
                         GxEPD_WHITE); // BACKGROUND ICON HOME
-     display.drawBitmap(image_data_outdoor, 351, 10, 40, 40,
+     display.drawBitmap(351, 10, image_data_outdoor, 40, 40,
                         GxEPD_WHITE); // BACKGROUND ICON OUTDOOR
-     display.drawBitmap(image_data_tempMax, 6, 111, 11, 30,
+     display.drawBitmap(6, 111, image_data_tempMax, 11, 30,
                         GxEPD_WHITE); // BACKGROUND ICON MAX TEMP LEFT
-     display.drawBitmap(image_data_tempMin, 6, 158, 11, 30,
+     display.drawBitmap(6, 158, image_data_tempMin, 11, 30,
                         GxEPD_WHITE); // BACKGROUND ICON MIN TEMP LEFT
-     display.drawBitmap(image_data_tempMax, 385, 111, 11, 30,
+     display.drawBitmap(385, 111, image_data_tempMax, 11, 30,
                         GxEPD_WHITE); // BACKGROUND ICON MAX TEMP RIGHT
-     display.drawBitmap(image_data_tempMin, 385, 158, 11, 30,
+     display.drawBitmap(385, 158, image_data_tempMin, 11, 30,
                         GxEPD_WHITE); // BACKGROUND ICON MIN TEMP RIGHT
-     display.drawBitmap(image_data_humidity, 375, 205, 20, 29,
+     display.drawBitmap(375, 205, image_data_humidity, 20, 29,
                         GxEPD_WHITE); // BACKGROUND ICON HUMIDITY RIGHT
-     display.drawBitmap(image_data_humidity, 6, 205, 20, 29,
+     display.drawBitmap(6, 205, image_data_humidity, 20, 29,
                         GxEPD_WHITE); // BACKGROUND ICON HUMIDITY LEFT
 }
 
@@ -628,7 +609,7 @@ void drawNoWifi() {
      // display.updateWindow(10, 10, 25, 25, true);
 }
 
-void displayTime(bool update) {
+void displayTime() {
      String s = "";
      if (cHour < 10) {
           s = s + "0";
@@ -646,68 +627,40 @@ void displayTime(bool update) {
      uint16_t box_h = 56;
      uint16_t cursor_y = box_y + box_h - 1;
 
-     if (!update) {
-          display.setFont(&Roboto_Black_72);
-          display.setTextColor(GxEPD_BLACK);
-          display.fillRect(box_x, box_y, box_w, box_h, GxEPD_WHITE);
-          display.setCursor(box_x, cursor_y);
-          s += "   ";
-          display.print(s);
-     }
-     if (update) {
-
-          //display.updateWindow(80, 100, 240, 97, true);
-          //delay(2000);
-          display.setFont(&Roboto_Black_72);
-          display.setTextColor(GxEPD_BLACK);
-          display.fillRect(80, 100, 240, 97, GxEPD_WHITE);
-          display.setCursor(box_x, cursor_y);
-          display.print(s);
-          display.updateWindow(80, 100, 240, 97, true);
-          delay(500);
-     }
+     display.setFont(&Roboto_Black_72);
+     display.setTextColor(GxEPD_BLACK);
+     display.setCursor(box_x, cursor_y);
+     display.print(s);
 }
 
-void displayWeather(bool update) {
+void displayWeather() {
      // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 = brouillard;  5 = nuages;
      // 6 = soleil;
-     /*int cursor_x = 115;
-int cursor_y = 260;
-int width = 100;
-int height = 30;
-display.fillRect(cursor_x,cursor_y - height, width, height, GxEPD_WHITE);
-display.setTextColor(GxEPD_BLACK);
-display.setFont(&FreeMonoBold18pt7b);
-display.setCursor(cursor_x, cursor_y);
-String s;*/
-
      int width = 64;
      int height = 64;
      int posX = 168;
      int poxY = 215;
 
      if (weather == 0)
-          display.drawBitmap(image_data_storm, posX, poxY, width, height,
-                             GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_storm, width, height,
+                                     GxEPD_BLACK);
      else if (weather == 1)
-          display.drawBitmap(image_data_rain, posX, poxY, width, height, GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
      else if (weather == 2)
-          display.drawBitmap(image_data_rain, posX, poxY, width, height, GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
      else if (weather == 3)
-          display.drawBitmap(image_data_snow, posX, poxY, width, height, GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_snow, width, height, GxEPD_BLACK);
      else if (weather == 4)
-          display.drawBitmap(image_data_smogg, posX, poxY, width, height,
-                             GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_smogg, width, height,
+                             GxEPD_BLACK);
      else if (weather == 5)
-          display.drawBitmap(image_data_cloud, posX, poxY, width, height,
-                             GxEPD_WHITE);
+          display.drawInvertedBitmap(posX, poxY, image_data_cloud, width, height,
+                             GxEPD_BLACK);
      else if (weather == 6)
-          display.drawBitmap(image_data_sun, posX, poxY, width, height, GxEPD_WHITE);
-     /*else s = "Erreur";
-display.print(");*/
+          display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
 }
 
-void displaySunSetRise(bool update) {
+void displaySunSetRise() {
      String sunset = (sunsetHour < 10 ? "0" : "") + String(sunsetHour) + ":" +
                      (sunsetMin < 10 ? "0" : "") + String(sunsetMin);
      Serial.println("Sunset: " + sunset);
@@ -731,9 +684,8 @@ void displaySunSetRise(bool update) {
      display.print(sunset);
 }
 
-void updateDate(bool update) {
+void updateDate() {
      // DISPLAY DATE ( DD MMM YYYY )
-     // display.fillRect(cursor_x, cursor_y - height, width, height, GxEPD_WHITE);
      display.setTextColor(GxEPD_BLACK);
      display.setFont(&FreeMonoBold18pt7b);
      Serial.println(cDay);
@@ -743,26 +695,16 @@ void updateDate(bool update) {
      String s = "";
      if (cDay < 10) {
           s += "0";
-          // display.print("0");
      }
      s += String(cDay);
      s += " ";
 
-     // display.print(cDay);
-     // display.print(" ");
-     //  if (cMonth < 10) {
-     //     display.print("0");
-     //  }
      s += MONTHS[cMonth - 1];
      s += " ";
      s += cYear;
-     // display.print(MONTHS[cMonth - 1]);
-     // display.print(" ");
-     // display.print(cYear);
 
      int16_t x, y;
      uint16_t w, h;
-     // 61, 0, 280, 50
      display.getTextBounds(s, 61, 50, &x, &y, &w, &h);
      Serial.print(x);
      Serial.print(" ");
@@ -777,9 +719,6 @@ void updateDate(bool update) {
      display.setCursor(cX, cY);
 
      display.print(s);
-     //	if (update)
-     //		display.updateWindow(cursor_x, cursor_y - height, width, height,
-     // true);
 
      // UPDATE DAY NAME
      int cursor_x = 115 + daySpaces[cDayStr]; // init for "Dimanche"
@@ -787,17 +726,13 @@ void updateDate(bool update) {
      int width = 170;
      int height = 25;
      int negHeight = 10;
-     // display.fillRect(cursor_x, cursor_y - height, width, height, GxEPD_WHITE);
      display.setTextColor(GxEPD_BLACK);
      display.setFont(&FreeMonoBold18pt7b);
-     // 100, 50, 200, 50
      display.getTextBounds(DAYS[cDayStr], 100, 50, &x, &y, &w, &h);
      int cX2 = 100 + (200 - w) / 2;
      int cY2 = 100 - (50 - h) / 2 * 1.5;
      display.setCursor(cX2, cY2);
      display.print(DAYS[cDayStr]);
-     if (update)
-          display.updateWindow(cursor_x, cursor_y - height, width, height, true);
 }
 
 void getTime() {
