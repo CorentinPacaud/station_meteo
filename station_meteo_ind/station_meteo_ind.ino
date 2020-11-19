@@ -60,8 +60,13 @@ extern "C" {
 #include "DTime.h"
 // FreeFonts from Adafruit_GFX
 #include <ArduinoJson.h>
+
+#include <DNSServer.h> //Local DNS Server used for redirecting all requests to the configuration portal
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h> //Local WebServer used to serve the configuration portal
 #include <ESP8266WiFi.h>
+#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold24pt7b.h>
 #include <math.h>
@@ -122,6 +127,12 @@ typedef struct
      uint32_t sunsetHour;
      uint32_t sunsetMin;
 } rtcStore;
+
+typedef struct {
+     const uint8_t PIN;
+     uint32_t numberKeyPresses;
+     bool pressed;
+} Button;
 
 rtcStore rtcValues;
 
@@ -184,11 +195,16 @@ int firstRestart = 0;
 
 // DHT dht(DHTPIN, DHTTYPE);
 
+Button buttonResetWifi = {0, 0, false};
+bool configSetting = false;
+
 DHTesp dht;
 unsigned long currentMillis;
 
 void setup() {
      Serial.begin(115200);
+
+     pinMode(buttonResetWifi.PIN, INPUT);
 
      display.init(115200); // enable diagnostic output on Serial
      display.setRotation(0);
@@ -221,9 +237,14 @@ void setup() {
 //      strcpy_P(buff, PSTR("Deep-Sleep Wake"));
 
 void loop() {
+
      Serial.println(
          "LOOP--------------------------------------------------------------------"
          "---");
+     if (digitalRead(buttonResetWifi.PIN) == LOW) {
+          Serial.println("BUTTON PRESSED !!!!!!!!!!!!!!");
+          resetParam();
+     }
 
      currentMillis = millis();
 
@@ -236,14 +257,7 @@ void loop() {
      if (startUp) {
           Serial.println("STARTUP");
      } else {
-          cMin++;
-          if (cMin == 60) {
-               cMin = 0;
-               cHour++;
-               if (cHour > 23) {
-                    cHour = 0;
-               }
-          }
+          addOneMinute();
      }
 
      bool bigRefresh = cMin % 5 == 0 || startUp;
@@ -282,14 +296,16 @@ void loop() {
      // restart btn and you have 5 min to upload code)
      if (rstReason == "External System" && firstRestart < 0) {
           Serial.println("First Restart");
-          for (int i = 0; i < timeElapsed; i++) {
-               delay(1000);
-          }
+          if (timeElapsed > 0)
+               for (int i = 0; i < timeElapsed; i++) {
+                    delay(1000);
+               }
           firstRestart++;
      } else {
           Serial.println("Start deepSleep");
           display.powerOff();
-          ESP.deepSleep(timeElapsed * 1000000, WAKE_RFCAL);
+          if (timeElapsed > 0)
+               ESP.deepSleep(timeElapsed * 1000000, WAKE_RFCAL);
           yield();
      }
 #else
@@ -303,16 +319,17 @@ void loop() {
 
 void getRemoteData() {
      saveData();
-     initWifi();
-     readTemperature();
+     if (initWifi()) {
+          readTemperature();
 
-     getLastValue(THINGSPEAK_GETLAST_FIELD4, &humExtCurr);
-     getLastValue(THINGSPEAK_GETLAST_FIELD2, &tempExtCurr);
+          getLastValue(THINGSPEAK_GETLAST_FIELD4, &humExtCurr);
+          getLastValue(THINGSPEAK_GETLAST_FIELD2, &tempExtCurr);
 
-     getMinMaxTemp(THINGSPEAK_GET24H_FIELD1, &tempIntMax, &tempIntMin);
-     getMinMaxTemp(THINGSPEAK_GET24H_FIELD2, &tempExtMax, &tempExtMin);
-     getSunWeather();
-     getTime();
+          getMinMaxTemp(THINGSPEAK_GET24H_FIELD1, &tempIntMax, &tempIntMin);
+          getMinMaxTemp(THINGSPEAK_GET24H_FIELD2, &tempExtMax, &tempExtMin);
+          getSunWeather();
+          getTime();
+     }
 
      WiFi.forceSleepBegin(); // Switch off wifi
      yield();
@@ -523,8 +540,12 @@ void displayTemperature() {
      display.setTextColor(GxEPD_WHITE);
      display.setFont(&FreeMonoBold18pt7b);
      display.setCursor(cursor_x, cursor_y);
-     display.print(String(tempExtCurr));
-     display.print("*C");
+     if (tempExtCurr != 999) {
+          display.print(String(tempExtCurr));
+          display.print("*C");
+     } else {
+          display.print("--*C");
+     }
 
      // MAX
      cursor_x = 330;
@@ -562,8 +583,12 @@ void displayTemperature() {
      display.setTextColor(GxEPD_WHITE);
      display.setFont(&FreeMonoBold18pt7b);
      display.setCursor(cursor_x, cursor_y);
-     display.print(String(humExtCurr));
-     display.print("%");
+     if (humExtCurr != 999) {
+          display.print(String(humExtCurr));
+          display.print("%");
+     } else {
+          display.print("--%");
+     }
 }
 
 void drawBackground() {
@@ -652,10 +677,10 @@ void displayWeather() {
           display.drawInvertedBitmap(posX, poxY, image_data_snow, width, height, GxEPD_BLACK);
      else if (weather == 4)
           display.drawInvertedBitmap(posX, poxY, image_data_smogg, width, height,
-                             GxEPD_BLACK);
+                                     GxEPD_BLACK);
      else if (weather == 5)
           display.drawInvertedBitmap(posX, poxY, image_data_cloud, width, height,
-                             GxEPD_BLACK);
+                                     GxEPD_BLACK);
      else if (weather == 6)
           display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
 }
@@ -786,15 +811,16 @@ void getLastValue(String url, int *value) {
           int lastI = http.getString().lastIndexOf(',');
           *value = -99;
           if (lastI != http.getString().length()) {
-               *value = int(round(http.getString()
-                                      .substring(lastI + 1, http.getString().length())
-                                      .toFloat()));
-               Serial.print("TempCurr");
-               Serial.println(*value);
+               String tmp = http.getString()
+                                .substring(lastI + 1, http.getString().length());
+               if (!tmp.startsWith("nan")) {
+                    *value = int(round(tmp.toFloat()));
+               } else {
+                    *value = 999;
+               }
           }
      } else {
           Serial.println("POST T Error : " + httpCode);
-          // drawNoWifi();
      }
      http.end(); // Close connection
 }
@@ -867,7 +893,6 @@ void getSunWeather() {
                         sunriseMin);
      } else {
           Serial.println("POST T Error : " + httpCode);
-          // drawNoWifi();
      }
      http.end(); // Close connection
 }
@@ -923,34 +948,81 @@ void getMaxMin(HTTPClient &http, int *tempMax, int *tempMin) {
      Serial.println(nbLine);
 }
 
-void mylog(String a) {
-     Serial.println("LOG");
+void addOneMinute() {
+     cMin++;
+     if (cMin == 60) {
+          cMin = 0;
+          cHour++;
+          if (cHour > 23) {
+               cHour = 0;
+          }
+     }
 }
 
-void initWifi() {
+void configModeCallback(WiFiManager *myWiFiManager) {
+     configSetting = true;
+     Serial.println("Entered config mode");
+     Serial.println(WiFi.softAPIP());
+
+     Serial.println(myWiFiManager->getConfigPortalSSID());
+
+     displayWifiManager(myWiFiManager);
+}
+
+void displayWifiManager(WiFiManager *myWiFiManager) {
+     Serial.println("Display connection config");
+     // WiFi.mode(WIFI_AP);
+     drawConnectionPage();
+
+     display.firstPage();
+     do {
+          drawConnectionPage();
+     } while (display.nextPage());
+}
+
+void drawConnectionPage() {
+     display.fillRect(0, 0, display.width(), display.height(),
+                      GxEPD_WHITE);
+     display.setTextColor(GxEPD_BLACK);
+     display.setFont(&FreeMonoBold9pt7b);
+     display.setCursor(15, 100);
+     display.print("Initialisation de la station meteo");
+     display.setCursor(15, 130);
+     display.print("Connectez-vous sur cette borne wifi :\nStation meteto\nMot de passe :\nmaStation");
+     display.setCursor(15, 230);
+     display.print("Puis ouvrez un navigateur internet a cette adresse :\n192.168.4.1");
+}
+
+bool initWifi() {
      Serial.println("Restart wifi");
-     WiFi.forceSleepWake();
-     WiFi.mode(WIFI_STA);
+     //WiFi.forceSleepWake();
+     //WiFi.mode(WIFI_AP_STA);
 
-     Serial.println();
-     Serial.print("Connecting to ");
-     Serial.println(ssid);
-
-     WiFi.begin(ssid, password);
-
-     while (WiFi.status() != WL_CONNECTED) {
-          delay(500);
-          Serial.print(".");
+     WiFiManager wifiManager;
+     // wifiManager.softAPConfig(IPAddress(192, 168, 10, 1), IPAddress(192, 168, 10, 1), IPAddress(255, 255, 255, 0));
+     wifiManager.setAPCallback(configModeCallback);
+     //wifiManager.setConfigPortalTimeout(30);                            //set timeout portal.
+     bool res = wifiManager.autoConnect("Station météto", "maStation"); // password protected ap
+                                                                        //getSSID
+     if (!res) {
+          Serial.println("Failed to connect");
+          addOneMinute();
+          return false;
+     } else {
+          Serial.println("");
+          Serial.println("WiFi connected");
      }
-     Serial.println("");
-     Serial.println("WiFi connected");
-
-     // Starting the web server
-     // server.begin();
-     // Serial.println("Web server running. Waiting for the ESP IP...");
-     // delay(10000);
 
      // Printing the ESP IP address
      Serial.println(WiFi.localIP());
-     delay(2000);
+     return true;
+}
+
+void resetParam() {
+     Serial.println("Button has been pressed.");
+
+     WiFiManager wifiManager;
+     wifiManager.resetSettings();
+     delay(1000);
+     initWifi();
 }
