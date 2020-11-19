@@ -134,6 +134,13 @@ typedef struct {
      bool pressed;
 } Button;
 
+typedef struct {
+     int x;
+     int y;
+     int width;
+     int height;
+} PositionBox;
+
 rtcStore rtcValues;
 
 GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
@@ -198,16 +205,32 @@ int firstRestart = 0;
 Button buttonResetWifi = {0, 0, false};
 bool configSetting = false;
 
+PositionBox timeBox, sunsetBox, sunriseBox, weatherBox;
+PositionBox tempIntLogoBox, tempIntCurrBox, tempIntMaxLogoBox, tempIntMinLogoBox;
+PositionBox tempExtCurrBox, tempExtLogoBox, tempExtMaxLogoBox, tempExtMinLogoBox;
+
 DHTesp dht;
 unsigned long currentMillis;
 
 void setup() {
+     timeBox = {0, 0, 150, 200};
+     sunriseBox = {0, 350, 120, 50};
+     sunsetBox = {180, 350, 120, 50};
+     weatherBox = {0, 200, 150, 200};
+     tempIntLogoBox = {150, 160, 40, 40};
+     tempIntCurrBox = {155, 5, 145, 50};
+     tempIntMaxLogoBox = {195, 120, 11, 30};
+     tempIntMinLogoBox = {195, 160, 11, 30};
+     tempExtLogoBox = {150, 200, 40, 40};
+     tempExtMaxLogoBox = {195, 210, 11, 30};
+     tempExtMinLogoBox = {195, 250, 11, 30};
+
      Serial.begin(115200);
 
      pinMode(buttonResetWifi.PIN, INPUT);
 
      display.init(115200); // enable diagnostic output on Serial
-     display.setRotation(0);
+     display.setRotation(1);
      // SWITCH OFF WIFI
      WiFi.forceSleepBegin();
      yield();
@@ -337,24 +360,28 @@ void getRemoteData() {
 
 void loadDataToDisplay() {
      Serial.println("Draw background");
-     drawBackground();
+     drawBackground2();
      Serial.println("End Draw background");
      Serial.println("Draw date");
-     updateDate();
-     Serial.println("END Draw date");
-     Serial.println("Draw TEmp");
-     displayTemperature();
-     Serial.println("End Draw TEmp");
-     Serial.println("Draw Time");
-     displayTime();
-     Serial.println("End Draw TIME");
-     Serial.println("Draw weather");
-     displayWeather();
-     Serial.println("End Draw weather");
-     Serial.println("Draw Sunsrise");
-     displaySunSetRise();
-     Serial.println("End Draw Sunsrise");
-     Serial.println("UDPATE !");
+     //updateDate();
+     //Serial.println("END Draw date");
+     //Serial.println("Draw TEmp");
+     //displayTemperature();
+     displayTemperature2();
+     //Serial.println("End Draw TEmp");
+     //Serial.println("Draw Time");
+     //displayTime();
+     displayTime2();
+     //Serial.println("End Draw TIME");
+     //Serial.println("Draw weather");
+     //displayWeather();
+     displayWeather2();
+     //Serial.println("End Draw weather");
+     //Serial.println("Draw Sunsrise");
+     //displaySunSetRise();
+     displaySunSetRise2();
+     //Serial.println("End Draw Sunsrise");
+     //Serial.println("UDPATE !");
 }
 
 void checkStart() {
@@ -591,6 +618,14 @@ void displayTemperature() {
      }
 }
 
+void displayTemperature2() {
+     display.setTextColor(GxEPD_BLACK);
+     display.setFont(&FreeMonoBold18pt7b);
+     display.setCursor(tempIntCurrBox.x, tempIntCurrBox.y + tempIntCurrBox.height - 5);
+     display.print(String(tempIntCurr));
+     display.print("*C");
+}
+
 void drawBackground() {
      display.fillRect(0, 0, display.width(), display.height(),
                       GxEPD_BLACK); // BACKGROUND BLACK
@@ -602,7 +637,7 @@ void drawBackground() {
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (TIME)
      display.fillRect(100, 201, 200, 99,
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (METEO)
-     display.fillRect(0, 250, display.width(), 49,
+     display.fillRect(0, 250, display.width(), 50,
                       GxEPD_WHITE); // BACKGROUND TOP WHITE RECT (SUNRISE, SUNSET)
 
      display.drawBitmap(10, 10, image_data_home, 40, 40,
@@ -621,6 +656,30 @@ void drawBackground() {
                         GxEPD_WHITE); // BACKGROUND ICON HUMIDITY RIGHT
      display.drawBitmap(6, 205, image_data_humidity, 20, 29,
                         GxEPD_WHITE); // BACKGROUND ICON HUMIDITY LEFT
+}
+
+void drawBackground2() {
+     display.fillRect(0, 0, display.width(), display.height(), GxEPD_WHITE);                         // BACKGROUND WHITE
+     display.fillRect(timeBox.x, timeBox.y, timeBox.width, timeBox.height, GxEPD_BLACK);             // TIME BKG BLACK
+     display.fillRect(sunriseBox.x, sunriseBox.y, sunriseBox.width, sunriseBox.height, GxEPD_BLACK); // SUNRISE BKG BLACK
+     display.fillRect(sunsetBox.x, sunsetBox.y, sunsetBox.width, sunsetBox.height, GxEPD_BLACK);     // SUNSET BKG BLACK
+
+     display.drawBitmap(tempIntLogoBox.x, tempIntLogoBox.y, image_data_home, tempIntLogoBox.width, tempIntLogoBox.height, GxEPD_BLACK);                // BACKGROUND ICON HOME
+     display.drawBitmap(tempIntMaxLogoBox.x, tempIntMaxLogoBox.y, image_data_tempMax, tempIntMaxLogoBox.width, tempIntMaxLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MAX TEMP LEFT
+     display.drawBitmap(tempIntMinLogoBox.x, tempIntMinLogoBox.y, image_data_tempMin, tempIntMinLogoBox.width, tempIntMinLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MIN TEMP LEFT
+
+     display.drawBitmap(tempExtLogoBox.x, tempExtLogoBox.y, image_data_outdoor, tempExtLogoBox.width, tempExtLogoBox.height, GxEPD_BLACK);             // BACKGROUND ICON OUTDOOR
+     display.drawBitmap(tempExtMaxLogoBox.x, tempExtMaxLogoBox.y, image_data_tempMax, tempExtMaxLogoBox.width, tempExtMaxLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MAX TEMP LEFT
+     display.drawBitmap(tempExtMinLogoBox.x, tempExtMinLogoBox.y, image_data_tempMin, tempExtMinLogoBox.width, tempExtMinLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MIN TEMP LEFT
+
+     // display.drawBitmap(385, 111, image_data_tempMax, 11, 30,
+     //                    GxEPD_WHITE); // BACKGROUND ICON MAX TEMP RIGHT
+     // display.drawBitmap(385, 158, image_data_tempMin, 11, 30,
+     //                    GxEPD_WHITE); // BACKGROUND ICON MIN TEMP RIGHT
+     // display.drawBitmap(375, 205, image_data_humidity, 20, 29,
+     //                    GxEPD_WHITE); // BACKGROUND ICON HUMIDITY RIGHT
+     // display.drawBitmap(6, 205, image_data_humidity, 20, 29,
+     //                    GxEPD_WHITE); // BACKGROUND ICON HUMIDITY LEFT
 }
 
 void drawWifi() {
@@ -658,6 +717,30 @@ void displayTime() {
      display.print(s);
 }
 
+void displayTime2() {
+     // 0, 0, 200, 250
+     String sHour = "";
+     if (cHour < 10) {
+          sHour = "0" + String(sHour);
+     } else {
+          sHour = String(cHour);
+     }
+
+     String sMin = "";
+     if (cMin < 10) {
+          sMin = "0" + String(cMin);
+     } else {
+          sMin = String(cMin);
+     }
+
+     display.setFont(&Roboto_Black_72);
+     display.setTextColor(GxEPD_WHITE);
+     display.setCursor(30, 85);
+     display.print(sHour);
+     display.setCursor(30, 170);
+     display.print(sMin);
+}
+
 void displayWeather() {
      // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 = brouillard;  5 = nuages;
      // 6 = soleil;
@@ -685,6 +768,30 @@ void displayWeather() {
           display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
 }
 
+void displayWeather2() {
+     int width = 64;
+     int height = 64;
+     int posX = weatherBox.x + 10;
+     int poxY = weatherBox.y + 10;
+
+     if (weather == 0)
+          display.drawInvertedBitmap(posX, poxY, image_data_storm, width, height,
+                                     GxEPD_BLACK);
+     else if (weather == 1)
+          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
+     else if (weather == 2)
+          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
+     else if (weather == 3)
+          display.drawInvertedBitmap(posX, poxY, image_data_snow, width, height, GxEPD_BLACK);
+     else if (weather == 4)
+          display.drawInvertedBitmap(posX, poxY, image_data_smogg, width, height,
+                                     GxEPD_BLACK);
+     else if (weather == 5)
+          display.drawInvertedBitmap(posX, poxY, image_data_cloud, width, height,
+                                     GxEPD_BLACK);
+     else if (weather == 6)
+          display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
+}
 void displaySunSetRise() {
      String sunset = (sunsetHour < 10 ? "0" : "") + String(sunsetHour) + ":" +
                      (sunsetMin < 10 ? "0" : "") + String(sunsetMin);
@@ -706,6 +813,23 @@ void displaySunSetRise() {
      cursor_x = 290;
      display.fillRect(cursor_x, cursor_y - height, width, height, GxEPD_WHITE);
      display.setCursor(cursor_x, cursor_y);
+     display.print(sunset);
+}
+
+void displaySunSetRise2() {
+     String sunset = (sunsetHour < 10 ? "0" : "") + String(sunsetHour) + ":" +
+                     (sunsetMin < 10 ? "0" : "") + String(sunsetMin);
+     Serial.println("Sunset: " + sunset);
+     String sunrise = (sunriseHour < 10 ? "0" : "") + String(sunriseHour) + ":" +
+                      (sunriseMin < 10 ? "0" : "") + String(sunriseMin);
+     Serial.println("Sunrise: " + sunrise);
+     // Sunrise
+     display.setTextColor(GxEPD_WHITE);
+     display.setFont(&FreeMonoBold18pt7b);
+     display.setCursor(sunriseBox.x + 7, sunriseBox.y + sunriseBox.height - 13);
+     display.print(sunrise);
+
+     display.setCursor(sunsetBox.x + 7, sunsetBox.y + sunsetBox.height - 13);
      display.print(sunset);
 }
 
