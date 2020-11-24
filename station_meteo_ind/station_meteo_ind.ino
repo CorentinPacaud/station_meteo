@@ -206,31 +206,50 @@ Button buttonResetWifi = {0, 0, false};
 bool configSetting = false;
 
 PositionBox timeBox, sunsetBox, sunriseBox, weatherBox;
-PositionBox tempIntLogoBox, tempIntCurrBox, tempIntMaxLogoBox, tempIntMinLogoBox;
-PositionBox tempExtCurrBox, tempExtLogoBox, tempExtMaxLogoBox, tempExtMinLogoBox;
+PositionBox dayBox, dateBox;
+PositionBox tempIntLogoBox, tempIntCurrBox, tempIntMaxLogoBox, tempIntMinLogoBox, tempIntMaxBox, tempIntMinBox;
+PositionBox tempExtCurrBox, tempExtLogoBox, tempExtMaxLogoBox, tempExtMinLogoBox, tempExtMaxBox, tempExtMinBox;
+PositionBox humIntCurrBox, humExtCurrBox, humLogoBox;
 
 DHTesp dht;
 unsigned long currentMillis;
 
+int layout = 2;
+
 void setup() {
      timeBox = {0, 0, 150, 200};
-     sunriseBox = {0, 350, 120, 50};
-     sunsetBox = {180, 350, 120, 50};
-     weatherBox = {0, 200, 150, 200};
-     tempIntLogoBox = {150, 160, 40, 40};
-     tempIntCurrBox = {155, 5, 145, 50};
-     tempIntMaxLogoBox = {195, 120, 11, 30};
-     tempIntMinLogoBox = {195, 160, 11, 30};
-     tempExtLogoBox = {150, 200, 40, 40};
-     tempExtMaxLogoBox = {195, 210, 11, 30};
-     tempExtMinLogoBox = {195, 250, 11, 30};
+     dayBox = {0, 310, 300, 50};
+     dateBox = {0, 360, 300, 40};
+     sunriseBox = {150, 0, 74, 40};
+     sunsetBox = {226, 0, 74, 40};
+     weatherBox = {193, 90, 64, 64};
+     tempIntLogoBox = {0, 200, 40, 40};
+     tempIntCurrBox = {40, 200, 110, 40};
+     tempIntMaxLogoBox = {0, 245, 11, 30};
+     tempIntMinLogoBox = {0, 280, 11, 30};
+     tempIntMaxBox = {15, 245, 50, 30};
+     tempIntMinBox = {15, 280, 50, 30};
+     humIntCurrBox = {70, 250, 65, 40};
+
+     humLogoBox = {140, 260, 20, 29};
+
+     tempExtLogoBox = {260, 200, 40, 40};
+     tempExtCurrBox = {150, 200, 110, 40};
+     tempExtMaxLogoBox = {280, 245, 11, 30};
+     tempExtMinLogoBox = {280, 280, 11, 30};
+     tempExtMaxBox = {230, 245, 50, 30};
+     tempExtMinBox = {230, 280, 50, 30};
+     humExtCurrBox = {165, 250, 65, 40};
 
      Serial.begin(115200);
 
      pinMode(buttonResetWifi.PIN, INPUT);
 
      display.init(115200); // enable diagnostic output on Serial
-     display.setRotation(1);
+     if (layout == 1)
+          display.setRotation(0);
+     else if (layout == 2)
+          display.setRotation(1);
      // SWITCH OFF WIFI
      WiFi.forceSleepBegin();
      yield();
@@ -360,26 +379,31 @@ void getRemoteData() {
 
 void loadDataToDisplay() {
      Serial.println("Draw background");
-     drawBackground2();
      Serial.println("End Draw background");
      Serial.println("Draw date");
-     //updateDate();
-     //Serial.println("END Draw date");
-     //Serial.println("Draw TEmp");
-     //displayTemperature();
-     displayTemperature2();
-     //Serial.println("End Draw TEmp");
-     //Serial.println("Draw Time");
-     //displayTime();
-     displayTime2();
-     //Serial.println("End Draw TIME");
-     //Serial.println("Draw weather");
-     //displayWeather();
-     displayWeather2();
-     //Serial.println("End Draw weather");
-     //Serial.println("Draw Sunsrise");
-     //displaySunSetRise();
-     displaySunSetRise2();
+     if (layout == 1) {
+          drawBackground();
+          displayDate();
+          //Serial.println("END Draw date");
+          //Serial.println("Draw TEmp");
+          displayTemperature();
+          //Serial.println("End Draw TEmp");
+          //Serial.println("Draw Time");
+          displayTime();
+          //Serial.println("End Draw TIME");
+          //Serial.println("Draw weather");
+          displayWeather();
+          //Serial.println("End Draw weather");
+          //Serial.println("Draw Sunsrise");
+          displaySunSetRise();
+     } else if (layout == 2) {
+          drawBackground2();
+          displayDate2();
+          displayTemperature2();
+          displayTime2();
+          displayWeather2();
+          displaySunSetRise2();
+     }
      //Serial.println("End Draw Sunsrise");
      //Serial.println("UDPATE !");
 }
@@ -621,9 +645,98 @@ void displayTemperature() {
 void displayTemperature2() {
      display.setTextColor(GxEPD_BLACK);
      display.setFont(&FreeMonoBold18pt7b);
-     display.setCursor(tempIntCurrBox.x, tempIntCurrBox.y + tempIntCurrBox.height - 5);
-     display.print(String(tempIntCurr));
-     display.print("*C");
+
+     int16_t tbx, tby;
+     uint16_t tbw, tbh;
+     display.getTextBounds(String(tempIntCurr) + "*", tempIntCurrBox.x, tempIntCurrBox.y, &tbx, &tby, &tbw, &tbh);
+     display.setCursor(tempIntCurrBox.x + (tempIntCurrBox.width - tbw) / 2, tempIntCurrBox.y + tempIntCurrBox.height - 10);
+     display.print(String(tempIntCurr) + "*");
+
+     int16_t tbx2, tby2;
+     uint16_t tbw2, tbh2;
+
+     String sTempExt = "";
+     if (tempExtCurr != 999) {
+          sTempExt = String(tempExtCurr) + "*";
+     } else {
+          sTempExt = "--*";
+     }
+
+     display.getTextBounds(sTempExt, tempExtCurrBox.x, tempExtCurrBox.y, &tbx2, &tby2, &tbw2, &tbh2);
+     display.setCursor(tempExtCurrBox.x + (tempExtCurrBox.width - tbw2) / 2, tempExtCurrBox.y + tempExtCurrBox.height - 10);
+     display.print(sTempExt);
+
+     display.setTextColor(GxEPD_BLACK);
+     display.setFont(&FreeMonoBold12pt7b);
+
+     int16_t tbx3, tby3;
+     uint16_t tbw3, tbh3;
+     String sTempIntMax = String(tempIntMax) + "*";
+     display.getTextBounds(sTempIntMax, tempIntMaxBox.x, tempIntMaxBox.y, &tbx3, &tby3, &tbw3, &tbh3);
+     display.setCursor(tempIntMaxBox.x + (tempIntMaxBox.width - tbw3) / 2, tempIntMaxBox.y + tempIntMaxBox.height - 7);
+     display.print(sTempIntMax);
+
+     int16_t tbx4, tby4;
+     uint16_t tbw4, tbh4;
+     String sTempIntMin = String(tempIntMin) + "*";
+     display.getTextBounds(sTempIntMin, tempIntMinBox.x, tempIntMinBox.y, &tbx4, &tby4, &tbw4, &tbh4);
+     display.setCursor(tempIntMinBox.x + (tempIntMinBox.width - tbw4) / 2, tempIntMinBox.y + tempIntMinBox.height - 7);
+     display.print(sTempIntMin);
+
+     int16_t tbx5, tby5;
+     uint16_t tbw5, tbh5;
+     String sTempExtMax = "";
+     if (tempExtMax != -99) {
+          sTempExtMax = String(tempExtMax) + "*";
+     } else {
+          sTempExtMax = "--*";
+     }
+
+     display.getTextBounds(sTempExtMax, tempExtMaxBox.x, tempExtMaxBox.y, &tbx5, &tby5, &tbw5, &tbh5);
+     display.setCursor(tempExtMaxBox.x + (tempExtMaxBox.width - tbw5) / 2, tempExtMaxBox.y + tempExtMaxBox.height - 7);
+     display.print(sTempExtMax);
+
+     int16_t tbx6, tby6;
+     uint16_t tbw6, tbh6;
+     String sTempExtMin = "";
+     if (tempExtMin != 99) {
+          sTempExtMin = String(tempExtMin) + "*";
+     } else {
+          sTempExtMin = "--*";
+     }
+     display.getTextBounds(sTempExtMin, tempExtMinBox.x, tempExtMinBox.y, &tbx6, &tby6, &tbw6, &tbh6);
+     display.setCursor(tempExtMinBox.x + (tempExtMinBox.width - tbw6) / 2, tempExtMinBox.y + tempExtMinBox.height - 7);
+     display.print(sTempExtMin);
+
+     // HumidityInt
+
+     int16_t tbx7, tby7;
+     uint16_t tbw7, tbh7;
+     String sHumInt = "";
+     if (humIntCurr != 999) {
+          sHumInt = String(humIntCurr) + "%";
+     } else {
+          sHumInt = "--%";
+     }
+     display.setFont(&FreeMonoBold18pt7b);
+     display.getTextBounds(sHumInt, humIntCurrBox.x, humIntCurrBox.y, &tbx7, &tby7, &tbw7, &tbh7);
+     display.setCursor(humIntCurrBox.x + (humIntCurrBox.width - tbw7) / 2, humIntCurrBox.y + humIntCurrBox.height - 7);
+     display.print(sHumInt);
+
+     // HumidityInt
+
+     int16_t tbx8, tby8;
+     uint16_t tbw8, tbh8;
+     String sHumExt = "";
+     if (humExtCurr != 999) {
+          sHumExt = String(humExtCurr) + "%";
+     } else {
+          sHumExt = "--%";
+     }
+     display.setFont(&FreeMonoBold18pt7b);
+     display.getTextBounds(sHumExt, humExtCurrBox.x, humExtCurrBox.y, &tbx8, &tby8, &tbw8, &tbh8);
+     display.setCursor(humExtCurrBox.x + (humExtCurrBox.width - tbw8) / 2, humExtCurrBox.y + humExtCurrBox.height - 7);
+     display.print(sHumExt);
 }
 
 void drawBackground() {
@@ -671,6 +784,8 @@ void drawBackground2() {
      display.drawBitmap(tempExtLogoBox.x, tempExtLogoBox.y, image_data_outdoor, tempExtLogoBox.width, tempExtLogoBox.height, GxEPD_BLACK);             // BACKGROUND ICON OUTDOOR
      display.drawBitmap(tempExtMaxLogoBox.x, tempExtMaxLogoBox.y, image_data_tempMax, tempExtMaxLogoBox.width, tempExtMaxLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MAX TEMP LEFT
      display.drawBitmap(tempExtMinLogoBox.x, tempExtMinLogoBox.y, image_data_tempMin, tempExtMinLogoBox.width, tempExtMinLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON MIN TEMP LEFT
+
+     display.drawBitmap(humLogoBox.x, humLogoBox.y, image_data_humidity, humLogoBox.width, humLogoBox.height, GxEPD_BLACK); // BACKGROUND ICON HUMIDITY RIGHT
 
      // display.drawBitmap(385, 111, image_data_tempMax, 11, 30,
      //                    GxEPD_WHITE); // BACKGROUND ICON MAX TEMP RIGHT
@@ -721,7 +836,7 @@ void displayTime2() {
      // 0, 0, 200, 250
      String sHour = "";
      if (cHour < 10) {
-          sHour = "0" + String(sHour);
+          sHour = "0" + String(cHour);
      } else {
           sHour = String(cHour);
      }
@@ -771,8 +886,8 @@ void displayWeather() {
 void displayWeather2() {
      int width = 64;
      int height = 64;
-     int posX = weatherBox.x + 10;
-     int poxY = weatherBox.y + 10;
+     int posX = weatherBox.x;
+     int poxY = weatherBox.y;
 
      if (weather == 0)
           display.drawInvertedBitmap(posX, poxY, image_data_storm, width, height,
@@ -825,15 +940,22 @@ void displaySunSetRise2() {
      Serial.println("Sunrise: " + sunrise);
      // Sunrise
      display.setTextColor(GxEPD_WHITE);
-     display.setFont(&FreeMonoBold18pt7b);
-     display.setCursor(sunriseBox.x + 7, sunriseBox.y + sunriseBox.height - 13);
+     display.setFont(&FreeMonoBold12pt7b);
+
+     int16_t tbx, tby;
+     uint16_t tbw, tbh;
+     display.getTextBounds(sunrise, sunriseBox.x, sunriseBox.y, &tbx, &tby, &tbw, &tbh);
+     display.setCursor(sunriseBox.x + (sunriseBox.width - tbw) / 2, sunriseBox.y + sunriseBox.height - 13);
      display.print(sunrise);
 
-     display.setCursor(sunsetBox.x + 7, sunsetBox.y + sunsetBox.height - 13);
+     int16_t tbx2, tby2;
+     uint16_t tbw2, tbh2;
+     display.getTextBounds(sunset, sunsetBox.x, sunsetBox.y, &tbx2, &tby2, &tbw2, &tbh2);
+     display.setCursor(sunsetBox.x + (sunsetBox.width - tbw2) / 2, sunsetBox.y + sunsetBox.height - 13);
      display.print(sunset);
 }
 
-void updateDate() {
+void displayDate() {
      // DISPLAY DATE ( DD MMM YYYY )
      display.setTextColor(GxEPD_BLACK);
      display.setFont(&FreeMonoBold18pt7b);
@@ -882,6 +1004,36 @@ void updateDate() {
      int cY2 = 100 - (50 - h) / 2 * 1.5;
      display.setCursor(cX2, cY2);
      display.print(DAYS[cDayStr]);
+}
+
+void displayDate2() {
+
+     display.setTextColor(GxEPD_BLACK);
+     display.setFont(&FreeMonoBold18pt7b);
+
+     int16_t tbx, tby;
+     uint16_t tbw, tbh;
+     display.getTextBounds(DAYS[cDayStr], dayBox.x, dayBox.y, &tbx, &tby, &tbw, &tbh);
+     display.setCursor(dayBox.x + (dayBox.width - tbw) / 2, dayBox.y + dayBox.height - 5);
+     display.print(DAYS[cDayStr]);
+
+     String s = "";
+     if (cDay < 10) {
+          s += "0";
+     }
+     s += String(cDay);
+     s += " ";
+
+     s += MONTHS[cMonth - 1];
+     s += " ";
+     s += cYear;
+
+     display.setFont(&FreeMonoBold18pt7b);
+     int16_t tbx2, tby2;
+     uint16_t tbw2, tbh2;
+     display.getTextBounds(s, dateBox.x, dateBox.y, &tbx2, &tby2, &tbw2, &tbh2);
+     display.setCursor(dateBox.x + (dateBox.width - tbw2) / 2, dateBox.y + dateBox.height - 5);
+     display.print(s);
 }
 
 void getTime() {
