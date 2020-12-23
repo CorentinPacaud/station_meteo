@@ -51,10 +51,10 @@ extern "C" {
 //#include <GxEPD2_3C.h>
 //#include <GxEPD2_7C.h>
 //#include <GxEPD.h>
-#include <GxFont_GFX.h>
+//#include <GxFont_GFX.h>
 //#include <GxGDEW042T2/GxGDEW042T2.h> // 4.2" b/w    // 4.2" b/w 400 x 300 px
-#include <GxIO/GxIO.h>
-#include <GxIO/GxIO_SPI/GxIO_SPI.h>
+//#include <GxIO/GxIO.h>
+//#include <GxIO/GxIO_SPI/GxIO_SPI.h>
 #include <math.h>
 
 #include "DTime.h"
@@ -143,7 +143,7 @@ typedef struct {
 
 rtcStore rtcValues;
 
-GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
+//GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
                               // selected for default of GxEPD_Class
 // GxGDEP015OC1(GxIO& io, uint8_t rst = 2, uint8_t busy = 4);
 GxEPD2_BW<GxEPD2_420, GxEPD2_420::HEIGHT> display(GxEPD2_420(/*CS=D8*/ SS, /*DC=D3*/ 0, /*RST=D4*/ 2, /*BUSY=D2*/ 4));
