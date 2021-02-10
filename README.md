@@ -1,9 +1,9 @@
-
-### <<WORK IN PROGRESS>>
-
 # WEATHER STATION - E-INK SCREEN
 
-![Weather Station](weather_station.jpg)
+Horizontal layout | Vertical Layout
+:----------|-----------:
+![Horizontal Layout](weather_station.jpg) | ![Vertical Layout](Screen2.jpg)
+![Back](back.jpg) | <--------------------Back side
 
 ## Introduction
 
@@ -35,3 +35,13 @@ This weather station can display :
 **Optionnal part** : 
 - triple 18650 li-ion holder: x1
 - single 18650 li-ion holder: x1
+
+
+New features :
+- Wifi manager : no need to add your SSID/PWD in the config.h file
+- Vertical layout
+
+Next update :
+- add the circuit schematics
+- change openweather api to get outside temperature (no need for outside sensor)
+- with change of openweather, add weather alert and corresponding icon
