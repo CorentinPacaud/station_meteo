@@ -21,14 +21,14 @@ This weather station can display :
 
 
 **Parts needed** : 
-- ESP8266 or ESP32 (x2) : ~4$
-- 18650 li-ion batteries (x4) : free for me (recycled from old laptop battery);
+- ESP8266(x2) or ESP32 (x2) (caution: code is for ESP8266) : ~4$
+- 18650 li-ion batteries (x3) : free for me (recycled from old laptop battery); or a Li-Ion (like RC vehicule, or other DIY project)
 - some cables, resistances...
 - TP4056 Module (microUSB charger) (x2) : ~0.30$ x 2;
 - a piece of acrylique plate : I use 2mm but recommand 4mm.
 - Some nylon M3 spacers : ~3$ a box.
 - 4.2 e-ink screen from waveshare : ~30$
-- a good 4.0V -> 3.3V converter like HT7333
+- a good 4.0V -> 3.3V converter like HT7333. Better this converter is, better is the life span of the battery. Chose a LDO (Low Drop Out).
 - a small plastic box (9cm x 6.5cm x 3cm) for outdoor sensor.
 - DHT22 (or DHT22) (x2) : ~2.45$ each
 
