@@ -193,6 +193,7 @@ int tempExtMin = 0;
 int humIntCurr = 0;
 int humExtCurr = 99;
 
+const int STORM = 0, RAIN = 1, SNOW = 2, FOG = 3, SUN = 4, SUNNY_CLOUD = 5, CLOUD = 6, DRIZZLE = 7;
 int weather = -1;   // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
                     // brouillard;  5 = nuages; 6 = soleil;
 int weatherJ1 = -1; // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
@@ -978,22 +979,25 @@ void displayWeather2()
 
 void displayWeatherItem(int weath, int posX, int posY, int width, int height)
 {
-     if (weath == 0)
+     if (weath == STORM)
           display.drawInvertedBitmap(posX, posY, image_data_storm, width, height,
                                      GxEPD_BLACK);
-     else if (weath == 1)
+     else if (weath == DRIZZLE)
+          display.drawInvertedBitmap(posX, posY, image_data_drizzle, width, height, GxEPD_BLACK);
+     else if (weath == RAIN)
           display.drawInvertedBitmap(posX, posY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weath == 2)
-          display.drawInvertedBitmap(posX, posY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weath == 3)
+     else if (weath == SNOW)
           display.drawInvertedBitmap(posX, posY, image_data_snow, width, height, GxEPD_BLACK);
-     else if (weath == 4)
-          display.drawInvertedBitmap(posX, posY, image_data_smogg, width, height,
+     else if (weath == FOG)
+          display.drawInvertedBitmap(posX, posY, image_data_fog, width, height,
                                      GxEPD_BLACK);
-     else if (weath == 5)
+     else if (weath == SUNNY_CLOUD)
+          display.drawInvertedBitmap(posX, posY, image_data_sunny_cloud, width, height,
+                                     GxEPD_BLACK);
+     else if (weath == CLOUD)
           display.drawInvertedBitmap(posX, posY, image_data_cloud, width, height,
                                      GxEPD_BLACK);
-     else if (weath == 6)
+     else if (weath == SUN)
           display.drawInvertedBitmap(posX, posY, image_data_sun, width, height, GxEPD_BLACK);
 }
 
@@ -1483,7 +1487,7 @@ void deserializeJsonOpenWeather(String input)
 
      //float current_feels_like = current["feels_like"]; // 267.61
      //int current_pressure = current["pressure"];       // 1016
-     int current_humidity = current["humidity"]; // 88
+     humExtCurr = current["humidity"]; // 88
      //float current_dew_point = current["dew_point"];   // 270.34
      //int current_uvi = current["uvi"];                 // 0
      //int current_clouds = current["clouds"];           // 98
@@ -1623,18 +1627,20 @@ void deserializeJsonOpenWeather(String input)
 int getWeatherCode(int weather)
 {
      if (weather >= 200 && weather <= 232)
-          return 0;
+          return STORM;
      if (weather >= 300 && weather <= 321)
-          return 1;
+          return DRIZZLE;
      if (weather >= 500 && weather <= 531)
-          return 2;
+          return RAIN;
      if (weather >= 600 && weather <= 622)
-          return 3;
+          return SNOW;
      if (weather >= 700 && weather <= 781)
-          return 4;
-     if (weather >= 801 && weather <= 804)
-          return 5;
+          return FOG;
      if (weather == 800)
-          return 6;
+          return SUN;
+     if (weather >= 801 && weather <= 802)
+          return SUNNY_CLOUD;
+     if (weather >= 803 && weather <= 804)
+          return CLOUD;
      return 7;
 }
