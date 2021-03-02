@@ -37,11 +37,14 @@ This weather station can display :
 - single 18650 li-ion holder: x1
 
 
+
+## Schematics
+
+![schematics](schematics.PNG) 
+
 New features :
 - Wifi manager : no need to add your SSID/PWD in the config.h file
 - Vertical layout
 
 Next update :
-- add the circuit schematics
-- change openweather api to get outside temperature (no need for outside sensor)
 - with change of openweather, add weather alert and corresponding icon
