@@ -42,6 +42,29 @@ This weather station can display :
 
 ![schematics](schematics.PNG) 
 
+***
+## Screen to ESP8266
+| SCREEN | ESP8266 |
+|:----------:|:-----------:|
+| BUSY (violet) | D2|
+| RST (blanc)   | D4|
+| DC (vert)     | D3|
+| CS (orange)   | D8|
+| CLK (jaune)   | D5|
+| DIN (bleu)    | D7|
+| GND (noir)    | gnd|
+| VCC (rouge)   | 3.3v|
+
+***
+## DHT22 to ESP8266
+
+| DHT22| ESP-8266 |
+|:----------:|:-----------:|
+| DATA | D1 |
+| GND  | gnd|
+| VCC  | 3.3v|
+
+
 New features :
 - Wifi manager : no need to add your SSID/PWD in the config.h file
 - Vertical layout
