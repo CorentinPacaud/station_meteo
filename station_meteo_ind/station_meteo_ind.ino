@@ -149,11 +149,11 @@ typedef struct
 
 rtcStore rtcValues;
 
-//GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
-// selected for default of GxEPD_Class
-// GxGDEP015OC1(GxIO& io, uint8_t rst = 2, uint8_t busy = 4);
+// GxIO_Class io(SPI, SS, 0, 2); // arbitrary selection of D3(=0), D4(=2),
+//  selected for default of GxEPD_Class
+//  GxGDEP015OC1(GxIO& io, uint8_t rst = 2, uint8_t busy = 4);
 GxEPD2_BW<GxEPD2_420, GxEPD2_420::HEIGHT> display(GxEPD2_420(/*CS=D8*/ SS, /*DC=D3*/ 0, /*RST=D4*/ 2, /*BUSY=D2*/ 4));
-//GxEPD_Class display(io); // default selection of D4(=2), D2(=4)
+// GxEPD_Class display(io); // default selection of D4(=2), D2(=4)
 
 const char *ssid = SSID;
 const char *password = SSID_PASSWORD;
@@ -182,7 +182,7 @@ const int daySpaces[] = {
 // const String HEADERSDAYS[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" ,
 // "Sun"};
 
-//const GFXfont *f = &FreeMonoBold9pt7b;
+// const GFXfont *f = &FreeMonoBold9pt7b;
 
 int tempIntCurr = 0;
 int tempIntMax = 0;
@@ -327,7 +327,7 @@ void loop()
      {
           Serial.println("BIG UPDATE");
           getRemoteData();
-          //display.update();
+          // display.update();
           startUp = false;
      }
 
@@ -400,9 +400,9 @@ void getRemoteData()
 
           getMinMaxTemp(THINGSPEAK_GET24H_FIELD1, &tempIntMax, &tempIntMin);
           getMinMaxTemp(THINGSPEAK_GET24H_FIELD2, &tempExtMax, &tempExtMin);
-          //getSunWeather();
+          // getSunWeather();
           getOpenWeatherOneCall();
-          //getTime();
+          // getTime();
      }
 
      WiFi.forceSleepBegin(); // Switch off wifi
@@ -418,17 +418,17 @@ void loadDataToDisplay()
      {
           drawBackground();
           displayDate();
-          //Serial.println("END Draw date");
-          //Serial.println("Draw TEmp");
+          // Serial.println("END Draw date");
+          // Serial.println("Draw TEmp");
           displayTemperature();
-          //Serial.println("End Draw TEmp");
-          //Serial.println("Draw Time");
+          // Serial.println("End Draw TEmp");
+          // Serial.println("Draw Time");
           displayTime();
-          //Serial.println("End Draw TIME");
-          //Serial.println("Draw weather");
+          // Serial.println("End Draw TIME");
+          // Serial.println("Draw weather");
           displayWeather();
-          //Serial.println("End Draw weather");
-          //Serial.println("Draw Sunsrise");
+          // Serial.println("End Draw weather");
+          // Serial.println("Draw Sunsrise");
           displaySunSetRise();
      }
      else if (layout == 2)
@@ -440,8 +440,8 @@ void loadDataToDisplay()
           displayWeather2();
           displaySunSetRise2();
      }
-     //Serial.println("End Draw Sunsrise");
-     //Serial.println("UDPATE !");
+     // Serial.println("End Draw Sunsrise");
+     // Serial.println("UDPATE !");
 }
 
 void checkStart()
@@ -973,7 +973,7 @@ void displayWeather2()
      display.print("J+1");
      display.fillRect(weatherBoxJ2.x, weatherBoxJ2.y, tbw + 2, tbh + 2, GxEPD_WHITE);
      display.setCursor(weatherBoxJ2.x, weatherBoxJ2.y + tbh);
-     //display.setCursor(weatherBoxJ2.x, tby);
+     // display.setCursor(weatherBoxJ2.x, tby);
      display.print("J+2");
 }
 
@@ -1403,15 +1403,15 @@ void drawConnectionPage()
 bool initWifi()
 {
      Serial.println("Restart wifi");
-     //WiFi.forceSleepWake();
-     //WiFi.mode(WIFI_AP_STA);
+     // WiFi.forceSleepWake();
+     // WiFi.mode(WIFI_AP_STA);
 
      WiFiManager wifiManager;
      // wifiManager.softAPConfig(IPAddress(192, 168, 10, 1), IPAddress(192, 168, 10, 1), IPAddress(255, 255, 255, 0));
      wifiManager.setAPCallback(configModeCallback);
-     //wifiManager.setConfigPortalTimeout(30);                            //set timeout portal.
+     // wifiManager.setConfigPortalTimeout(30);                            //set timeout portal.
      bool res = wifiManager.autoConnect("Station météto", "maStation"); // password protected ap
-                                                                        //getSSID
+                                                                        // getSSID
      if (!res)
      {
           Serial.println("Failed to connect");
@@ -1463,9 +1463,28 @@ void deserializeJsonOpenWeather(String input)
      // String input;
 
 #pragma region Deserialize JSON
-     DynamicJsonDocument doc(6144);
+     StaticJsonDocument<304> filter;
+     filter["timezone_offset"] = true;
 
-     DeserializationError error = deserializeJson(doc, input);
+     JsonObject filter_current = filter.createNestedObject("current");
+     filter_current["dt"] = true;
+     filter_current["sunrise"] = true;
+     filter_current["senset"] = true;
+     filter_current["temp"] = true;
+     filter_current["humidity"] = true;
+     filter_current["weather"][0]["id"] = true;
+
+     JsonObject filter_daily_0 = filter["daily"].createNestedObject();
+
+     JsonObject filter_daily_0_temp = filter_daily_0.createNestedObject("temp");
+     filter_daily_0_temp["day"] = true;
+     filter_daily_0_temp["min"] = true;
+     filter_daily_0_temp["max"] = true;
+     filter_daily_0["weather"][0]["id"] = true;
+
+     DynamicJsonDocument doc(1536);
+
+     DeserializationError error = deserializeJson(doc, input, DeserializationOption::Filter(filter));
 
      if (error)
      {
@@ -1474,9 +1493,9 @@ void deserializeJsonOpenWeather(String input)
           return;
      }
 
-     //float lat = doc["lat"];                       // 46.3333
-     //float lon = doc["lon"];                       // 5.1333
-     //const char *timezone = doc["timezone"];       // "Europe/Paris"
+     // float lat = doc["lat"];                       // 46.3333
+     // float lon = doc["lon"];                       // 5.1333
+     // const char *timezone = doc["timezone"];       // "Europe/Paris"
      int timezone_offset = doc["timezone_offset"]; // 3600
 
      JsonObject current = doc["current"];
@@ -1485,22 +1504,22 @@ void deserializeJsonOpenWeather(String input)
      long current_sunset = current["sunset"];   // 1612976221
      tempExtCurr = current["temp"];             // 271.87
 
-     //float current_feels_like = current["feels_like"]; // 267.61
-     //int current_pressure = current["pressure"];       // 1016
+     // float current_feels_like = current["feels_like"]; // 267.61
+     // int current_pressure = current["pressure"];       // 1016
      humExtCurr = current["humidity"]; // 88
-     //float current_dew_point = current["dew_point"];   // 270.34
-     //int current_uvi = current["uvi"];                 // 0
-     //int current_clouds = current["clouds"];           // 98
-     //int current_visibility = current["visibility"];   // 10000
-     //float current_wind_speed = current["wind_speed"]; // 2.68
-     //int current_wind_deg = current["wind_deg"];       // 9
-     //float current_wind_gust = current["wind_gust"];   // 5.36
+     // float current_dew_point = current["dew_point"];   // 270.34
+     // int current_uvi = current["uvi"];                 // 0
+     // int current_clouds = current["clouds"];           // 98
+     // int current_visibility = current["visibility"];   // 10000
+     // float current_wind_speed = current["wind_speed"]; // 2.68
+     // int current_wind_deg = current["wind_deg"];       // 9
+     // float current_wind_gust = current["wind_gust"];   // 5.36
 
      JsonObject current_weather_0 = current["weather"][0];
      int current_weather_0_id = current_weather_0["id"]; // 804
-     //const char *current_weather_0_main = current_weather_0["main"];               // "Clouds"
-     const char *current_weather_0_description = current_weather_0["description"]; // "overcast clouds"
-     //const char *current_weather_0_icon = current_weather_0["icon"];               // "04n"
+     // const char *current_weather_0_main = current_weather_0["main"];               // "Clouds"
+     // const char *current_weather_0_description = current_weather_0["description"]; // "overcast clouds"
+     // const char *current_weather_0_icon = current_weather_0["icon"];               // "04n"
 
      JsonArray daily = doc["daily"];
 
@@ -1517,11 +1536,11 @@ void deserializeJsonOpenWeather(String input)
      // float daily_0_temp_eve = daily_0_temp["eve"];     // 274.18
      // float daily_0_temp_morn = daily_0_temp["morn"];   // 278.77
 
-     //JsonObject daily_0_feels_like = daily_0["feels_like"];
-     //float daily_0_feels_like_day = daily_0_feels_like["day"];     // 277.51
-     //float daily_0_feels_like_night = daily_0_feels_like["night"]; // 267.07
-     //float daily_0_feels_like_eve = daily_0_feels_like["eve"];     // 270.4
-     //float daily_0_feels_like_morn = daily_0_feels_like["morn"];   // 276.15
+     // JsonObject daily_0_feels_like = daily_0["feels_like"];
+     // float daily_0_feels_like_day = daily_0_feels_like["day"];     // 277.51
+     // float daily_0_feels_like_night = daily_0_feels_like["night"]; // 267.07
+     // float daily_0_feels_like_eve = daily_0_feels_like["eve"];     // 270.4
+     // float daily_0_feels_like_morn = daily_0_feels_like["morn"];   // 276.15
 
      // int daily_0_pressure = daily_0["pressure"];       // 1004
      // int daily_0_humidity = daily_0["humidity"];       // 90
@@ -1531,14 +1550,14 @@ void deserializeJsonOpenWeather(String input)
 
      JsonObject daily_0_weather_0 = daily_0["weather"][0];
      int daily_0_weather_0_id = daily_0_weather_0["id"]; // 501
-     //const char *daily_0_weather_0_main = daily_0_weather_0["main"];               // "Rain"
-     const char *daily_0_weather_0_description = daily_0_weather_0["description"]; // "moderate rain"
-     //const char *daily_0_weather_0_icon = daily_0_weather_0["icon"];               // "10d"
+     // const char *daily_0_weather_0_main = daily_0_weather_0["main"];               // "Rain"
+     // const char *daily_0_weather_0_description = daily_0_weather_0["description"]; // "moderate rain"
+     // const char *daily_0_weather_0_icon = daily_0_weather_0["icon"];               // "10d"
 
-     //int daily_0_clouds = daily_0["clouds"]; // 100
-     //int daily_0_pop = daily_0["pop"];       // 1
-     //float daily_0_rain = daily_0["rain"];   // 6.73
-     //float daily_0_uvi = daily_0["uvi"];     // 0.96
+     // int daily_0_clouds = daily_0["clouds"]; // 100
+     // int daily_0_pop = daily_0["pop"];       // 1
+     // float daily_0_rain = daily_0["rain"];   // 6.73
+     // float daily_0_uvi = daily_0["uvi"];     // 0.96
 
      JsonObject daily_1 = daily[2];
      JsonObject daily_1_weather_0 = daily_1["weather"][0];
@@ -1557,8 +1576,8 @@ void deserializeJsonOpenWeather(String input)
 #pragma endregion
 
      //  Serial.printf("Demain, le temps sera %s, il fera %f, min %f et max %f\n", *daily_1_weather_0_main, daily_1_temp_day, daily_1_temp_min, daily_1_temp_max);
-     Serial.printf("Aujourd'hui, il fait %s, temp: %f\n", current_weather_0_description, tempExtCurr);
-     Serial.printf("Demain, il fera %s, temp: %f , min: %f , max: %f \n", daily_0_weather_0_description, daily_0_temp_day, daily_0_temp_min, daily_0_temp_max);
+     // Serial.printf("Aujourd'hui, il fait %s, temp: %f\n", current_weather_0_description, tempExtCurr);
+     // Serial.printf("Demain, il fera %s, temp: %f , min: %f , max: %f \n", daily_0_weather_0_description, daily_0_temp_day, daily_0_temp_min, daily_0_temp_max);
      Serial.printf("Il y a %d alertes météo.\n", doc["alerts"].as<JsonArray>().size());
 
      weather = getWeatherCode(current_weather_0_id);
@@ -1600,7 +1619,7 @@ void deserializeJsonOpenWeather(String input)
 
      DTime cDate;
      cDate.setTimestamp(current_dt + timezone_offset);
-     //String dateTimeStr = String(datetime);
+     // String dateTimeStr = String(datetime);
      cDayStr = cDate.weekday;
      rtcValues.day = cDayStr;
      cYear = cDate.year;
