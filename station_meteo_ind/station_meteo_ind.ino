@@ -1469,7 +1469,7 @@ void deserializeJsonOpenWeather(String input)
      JsonObject filter_current = filter.createNestedObject("current");
      filter_current["dt"] = true;
      filter_current["sunrise"] = true;
-     filter_current["senset"] = true;
+     filter_current["sunset"] = true;
      filter_current["temp"] = true;
      filter_current["humidity"] = true;
      filter_current["weather"][0]["id"] = true;
