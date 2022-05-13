@@ -2,7 +2,7 @@
 
 Horizontal layout | Vertical Layout
 :----------|-----------:
-![Horizontal Layout](weather_station.jpg) | ![Vertical Layout](Screen2.jpg)
+![Horizontal Layout](weather_station.jpg) | ![Vertical Layout](weather_station_vertical.jpg)
 ![Back](back.jpg) | <--------------------Back side
 
 ## Introduction
