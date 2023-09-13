@@ -127,6 +127,8 @@ typedef struct
      uint32_t sunriseMin;
      uint32_t sunsetHour;
      uint32_t sunsetMin;
+     uint32_t weatherJ1;
+     uint32_t weatherJ2;
 } rtcStore;
  */
 Preferences preferences;
@@ -172,14 +174,14 @@ const String MONTHS[] = {"Jan", "Fev", "Mars", "Avril", "Mai", "Juin",
                          "Juil", "Aout", "Sept", "Oct", "Nov", "Dec"};
 // const String HEADERSMONTHS[]        = {"Jan" , "Feb" , "Mar" , "Apr", "May",
 // "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-const String DAYS[] = {"DIMANCHE", "LUNDI", "MARDI", "MERCREDI",
-                       "JEUDI", "VENDREDI", "SAMEDI"};
+const char *DAYS[] = {"DIMANCHE", "LUNDI", "MARDI", "MERCREDI",
+                      "JEUDI", "VENDREDI", "SAMEDI"};
 const int daySpaces[] = {
     0, 30, 30, 15, 30, 10, 20}; // Espace pour centrer le text. lun,mar,...
 // const String HEADERSDAYS[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" ,
 // "Sun"};
 
-const GFXfont *f = &FreeMonoBold9pt7b;
+// const GFXfont *f = &FreeMonoBold9pt7b;
 
 int tempIntCurr = 0;
 int tempIntMax = 0;
@@ -190,8 +192,13 @@ int tempExtMin = 0;
 int humIntCurr = 0;
 int humExtCurr = 99;
 
-int weather = -1; // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
-                  // brouillard;  5 = nuages; 6 = soleil;
+const int STORM = 0, RAIN = 1, SNOW = 2, FOG = 3, SUN = 4, SUNNY_CLOUD = 5, CLOUD = 6, DRIZZLE = 7;
+int weather = -1;   // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
+                    // brouillard;  5 = nuages; 6 = soleil;
+int weatherJ1 = -1; // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
+                    // brouillard;  5 = nuages; 6 = soleil;
+int weatherJ2 = -1; // 0 =  orage; 1 = bruine; 2 = pluie; 3 = neige; 4 =
+                    // brouillard;  5 = nuages; 6 = soleil;
 
 int sunsetHour = 0;
 int sunsetMin = 0;
@@ -208,7 +215,7 @@ int firstRestart = 0;
 Button buttonResetWifi = {0, 0, false};
 bool configSetting = false;
 
-PositionBox timeBox, sunsetBox, sunriseBox, weatherBox;
+PositionBox timeBox, sunsetBox, sunriseBox, weatherBox, weatherBoxJ1, weatherBoxJ2;
 PositionBox dayBox, dateBox;
 PositionBox tempIntLogoBox, tempIntCurrBox, tempIntMaxLogoBox, tempIntMinLogoBox, tempIntMaxBox, tempIntMinBox;
 PositionBox tempExtCurrBox, tempExtLogoBox, tempExtMaxLogoBox, tempExtMinLogoBox, tempExtMaxBox, tempExtMinBox;
@@ -226,7 +233,9 @@ void setup()
      dateBox = {0, 360, 300, 40};
      sunriseBox = {150, 0, 74, 40};
      sunsetBox = {226, 0, 74, 40};
-     weatherBox = {193, 90, 64, 64};
+     weatherBox = {193, 50, 64, 64};
+     weatherBoxJ1 = {155, 125, 64, 64};
+     weatherBoxJ2 = {230, 125, 64, 64};
      tempIntLogoBox = {0, 200, 40, 40};
      tempIntCurrBox = {40, 200, 110, 40};
      tempIntMaxLogoBox = {0, 245, 11, 30};
@@ -391,8 +400,9 @@ void getRemoteData()
 
           getMinMaxTemp(THINGSPEAK_GET24H_FIELD1, &tempIntMax, &tempIntMin);
           getMinMaxTemp(THINGSPEAK_GET24H_FIELD2, &tempExtMax, &tempExtMin);
-          getSunWeather();
-          getTime();
+          // getSunWeather();
+          getOpenWeatherOneCall();
+          // getTime();
      }
 
      WiFi.forceSleepBegin(); // Switch off wifi
@@ -943,50 +953,54 @@ void displayWeather()
      int posX = 168;
      int poxY = 215;
 
-     if (weather == 0)
-          display.drawInvertedBitmap(posX, poxY, image_data_storm, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 1)
-          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weather == 2)
-          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weather == 3)
-          display.drawInvertedBitmap(posX, poxY, image_data_snow, width, height, GxEPD_BLACK);
-     else if (weather == 4)
-          display.drawInvertedBitmap(posX, poxY, image_data_smogg, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 5)
-          display.drawInvertedBitmap(posX, poxY, image_data_cloud, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 6)
-          display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
+     displayWeatherItem(weather, posX, poxY, width, height);
 }
 
 void displayWeather2()
 {
-     int width = 64;
-     int height = 64;
-     int posX = weatherBox.x;
-     int poxY = weatherBox.y;
+     displayWeatherItem(weather, weatherBox.x, weatherBox.y, weatherBox.width, weatherBox.height);
+     displayWeatherItem(weatherJ1, weatherBoxJ1.x, weatherBoxJ1.y, weatherBoxJ1.width, weatherBoxJ1.height);
+     displayWeatherItem(weatherJ2, weatherBoxJ2.x, weatherBoxJ2.y, weatherBoxJ2.width, weatherBoxJ2.height);
 
-     if (weather == 0)
-          display.drawInvertedBitmap(posX, poxY, image_data_storm, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 1)
-          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weather == 2)
-          display.drawInvertedBitmap(posX, poxY, image_data_rain, width, height, GxEPD_BLACK);
-     else if (weather == 3)
-          display.drawInvertedBitmap(posX, poxY, image_data_snow, width, height, GxEPD_BLACK);
-     else if (weather == 4)
-          display.drawInvertedBitmap(posX, poxY, image_data_smogg, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 5)
-          display.drawInvertedBitmap(posX, poxY, image_data_cloud, width, height,
-                                     GxEPD_BLACK);
-     else if (weather == 6)
-          display.drawInvertedBitmap(posX, poxY, image_data_sun, width, height, GxEPD_BLACK);
+     int16_t tbx, tby;
+     uint16_t tbw, tbh;
+     display.setTextColor(GxEPD_BLACK);
+     display.setFont(&FreeMonoBold12pt7b);
+     display.getTextBounds("J+1", weatherBoxJ1.x, weatherBoxJ1.y, &tbx, &tby, &tbw, &tbh);
+     display.fillRect(weatherBoxJ1.x, weatherBoxJ1.y, tbw + 2, tbh + 2, GxEPD_WHITE);
+     display.setCursor(weatherBoxJ1.x, weatherBoxJ1.y + tbh);
+     // display.setCursor(weatherBoxJ1.x, tby);
+     display.print("J+1");
+     display.fillRect(weatherBoxJ2.x, weatherBoxJ2.y, tbw + 2, tbh + 2, GxEPD_WHITE);
+     display.setCursor(weatherBoxJ2.x, weatherBoxJ2.y + tbh);
+     // display.setCursor(weatherBoxJ2.x, tby);
+     display.print("J+2");
 }
+
+void displayWeatherItem(int weath, int posX, int posY, int width, int height)
+{
+     if (weath == STORM)
+          display.drawInvertedBitmap(posX, posY, image_data_storm, width, height,
+                                     GxEPD_BLACK);
+     else if (weath == DRIZZLE)
+          display.drawInvertedBitmap(posX, posY, image_data_drizzle, width, height, GxEPD_BLACK);
+     else if (weath == RAIN)
+          display.drawInvertedBitmap(posX, posY, image_data_rain, width, height, GxEPD_BLACK);
+     else if (weath == SNOW)
+          display.drawInvertedBitmap(posX, posY, image_data_snow, width, height, GxEPD_BLACK);
+     else if (weath == FOG)
+          display.drawInvertedBitmap(posX, posY, image_data_fog, width, height,
+                                     GxEPD_BLACK);
+     else if (weath == SUNNY_CLOUD)
+          display.drawInvertedBitmap(posX, posY, image_data_sunny_cloud, width, height,
+                                     GxEPD_BLACK);
+     else if (weath == CLOUD)
+          display.drawInvertedBitmap(posX, posY, image_data_cloud, width, height,
+                                     GxEPD_BLACK);
+     else if (weath == SUN)
+          display.drawInvertedBitmap(posX, posY, image_data_sun, width, height, GxEPD_BLACK);
+}
+
 void displaySunSetRise()
 {
      String sunset = (sunsetHour < 10 ? "0" : "") + String(sunsetHour) + ":" +
@@ -1426,4 +1440,229 @@ void resetParam()
      wifiManager.resetSettings();
      delay(1000);
      initWifi();
+}
+
+void getOpenWeatherOneCall()
+{
+     WiFiClient client;
+     HTTPClient http;
+     http.setTimeout(10000);
+     http.begin(client, OPENWEATHER_ONE_CALL);
+     int httpCode = http.GET();
+     Serial.println(httpCode);
+     if (httpCode > 0)
+     { // Check the returning code
+          String json = http.getString();
+          deserializeJsonOpenWeather(json);
+     }
+     else
+     {
+          Serial.println("ERROR open weather onecall");
+     }
+     http.end();
+}
+
+void deserializeJsonOpenWeather(String input)
+{
+     // String input;
+
+#pragma region Deserialize JSON
+     StaticJsonDocument<304> filter;
+     filter["timezone_offset"] = true;
+
+     JsonObject filter_current = filter.createNestedObject("current");
+     filter_current["dt"] = true;
+     filter_current["sunrise"] = true;
+     filter_current["sunset"] = true;
+     filter_current["temp"] = true;
+     filter_current["humidity"] = true;
+     filter_current["weather"][0]["id"] = true;
+
+     JsonObject filter_daily_0 = filter["daily"].createNestedObject();
+
+     JsonObject filter_daily_0_temp = filter_daily_0.createNestedObject("temp");
+     filter_daily_0_temp["day"] = true;
+     filter_daily_0_temp["min"] = true;
+     filter_daily_0_temp["max"] = true;
+     filter_daily_0["weather"][0]["id"] = true;
+
+     DynamicJsonDocument doc(1536);
+
+     DeserializationError error = deserializeJson(doc, input, DeserializationOption::Filter(filter));
+
+     if (error)
+     {
+          Serial.print(F("deserializeJson() failed: "));
+          Serial.println(error.f_str());
+          return;
+     }
+
+     // float lat = doc["lat"];                       // 46.3333
+     // float lon = doc["lon"];                       // 5.1333
+     // const char *timezone = doc["timezone"];       // "Europe/Paris"
+     int timezone_offset = doc["timezone_offset"]; // 3600
+
+     JsonObject current = doc["current"];
+     long current_dt = current["dt"];           // 1612992998
+     long current_sunrise = current["sunrise"]; // 1612939831
+     long current_sunset = current["sunset"];   // 1612976221
+     tempExtCurr = current["temp"];             // 271.87
+
+     // float current_feels_like = current["feels_like"]; // 267.61
+     // int current_pressure = current["pressure"];       // 1016
+     humExtCurr = current["humidity"]; // 88
+     // float current_dew_point = current["dew_point"];   // 270.34
+     // int current_uvi = current["uvi"];                 // 0
+     // int current_clouds = current["clouds"];           // 98
+     // int current_visibility = current["visibility"];   // 10000
+     // float current_wind_speed = current["wind_speed"]; // 2.68
+     // int current_wind_deg = current["wind_deg"];       // 9
+     // float current_wind_gust = current["wind_gust"];   // 5.36
+
+     JsonObject current_weather_0 = current["weather"][0];
+     int current_weather_0_id = current_weather_0["id"]; // 804
+     // const char *current_weather_0_main = current_weather_0["main"];               // "Clouds"
+     // const char *current_weather_0_description = current_weather_0["description"]; // "overcast clouds"
+     // const char *current_weather_0_icon = current_weather_0["icon"];               // "04n"
+
+     JsonArray daily = doc["daily"];
+
+     JsonObject daily_0 = daily[1];
+     // long daily_0_dt = daily_0["dt"];           // 1612954800
+     // long daily_0_sunrise = daily_0["sunrise"]; // 1612939831
+     // long daily_0_sunset = daily_0["sunset"];   // 1612976221
+
+     JsonObject daily_0_temp = daily_0["temp"];
+     float daily_0_temp_day = daily_0_temp["day"]; // 279.69
+     float daily_0_temp_min = daily_0_temp["min"]; // 271.1
+     float daily_0_temp_max = daily_0_temp["max"]; // 280.05
+     // float daily_0_temp_night = daily_0_temp["night"]; // 271.1
+     // float daily_0_temp_eve = daily_0_temp["eve"];     // 274.18
+     // float daily_0_temp_morn = daily_0_temp["morn"];   // 278.77
+
+     // JsonObject daily_0_feels_like = daily_0["feels_like"];
+     // float daily_0_feels_like_day = daily_0_feels_like["day"];     // 277.51
+     // float daily_0_feels_like_night = daily_0_feels_like["night"]; // 267.07
+     // float daily_0_feels_like_eve = daily_0_feels_like["eve"];     // 270.4
+     // float daily_0_feels_like_morn = daily_0_feels_like["morn"];   // 276.15
+
+     // int daily_0_pressure = daily_0["pressure"];       // 1004
+     // int daily_0_humidity = daily_0["humidity"];       // 90
+     // float daily_0_dew_point = daily_0["dew_point"];   // 278.2
+     // float daily_0_wind_speed = daily_0["wind_speed"]; // 1.51
+     // int daily_0_wind_deg = daily_0["wind_deg"];       // 227
+
+     JsonObject daily_0_weather_0 = daily_0["weather"][0];
+     int daily_0_weather_0_id = daily_0_weather_0["id"]; // 501
+     // const char *daily_0_weather_0_main = daily_0_weather_0["main"];               // "Rain"
+     // const char *daily_0_weather_0_description = daily_0_weather_0["description"]; // "moderate rain"
+     // const char *daily_0_weather_0_icon = daily_0_weather_0["icon"];               // "10d"
+
+     // int daily_0_clouds = daily_0["clouds"]; // 100
+     // int daily_0_pop = daily_0["pop"];       // 1
+     // float daily_0_rain = daily_0["rain"];   // 6.73
+     // float daily_0_uvi = daily_0["uvi"];     // 0.96
+
+     JsonObject daily_1 = daily[2];
+     JsonObject daily_1_weather_0 = daily_1["weather"][0];
+     int daily_1_weather_0_id = daily_1_weather_0["id"];
+
+     for (JsonObject elem : doc["alerts"].as<JsonArray>())
+     {
+
+          const char *sender_name = elem["sender_name"]; // "METEO-FRANCE", "METEO-FRANCE"
+          const char *event = elem["event"];             // "Moderate snow-ice warning", "Moderate flooding warning"
+          long start = elem["start"];                    // 1612969200, 1612969200
+          long end = elem["end"];                        // 1613055600, 1613055600
+          const char *description = elem["description"]; // "Although rather usual in this region, locally or ...
+     }
+
+#pragma endregion
+
+     //  Serial.printf("Demain, le temps sera %s, il fera %f, min %f et max %f\n", *daily_1_weather_0_main, daily_1_temp_day, daily_1_temp_min, daily_1_temp_max);
+     // Serial.printf("Aujourd'hui, il fait %s, temp: %f\n", current_weather_0_description, tempExtCurr);
+     // Serial.printf("Demain, il fera %s, temp: %f , min: %f , max: %f \n", daily_0_weather_0_description, daily_0_temp_day, daily_0_temp_min, daily_0_temp_max);
+     Serial.printf("Il y a %d alertes météo.\n", doc["alerts"].as<JsonArray>().size());
+
+     weather = getWeatherCode(current_weather_0_id);
+     weatherJ1 = getWeatherCode(daily_0_weather_0_id);
+     weatherJ2 = getWeatherCode(daily_1_weather_0_id);
+
+     /*  if (current_weather_0_id >= 200 && current_weather_0_id <= 232)
+          weather = 0;
+     if (current_weather_0_id >= 300 && current_weather_0_id <= 321)
+          weather = 1;
+     if (current_weather_0_id >= 500 && current_weather_0_id <= 531)
+          weather = 2;
+     if (current_weather_0_id >= 600 && current_weather_0_id <= 622)
+          weather = 3;
+     if (current_weather_0_id >= 700 && current_weather_0_id <= 781)
+          weather = 4;
+     if (current_weather_0_id >= 801 && current_weather_0_id <= 804)
+          weather = 5;
+     if (current_weather_0_id == 800)
+          weather = 6; */
+
+     Serial.print("Weahter: ");
+     Serial.println(weather);
+     JsonObject sys = doc["sys"];
+     long sys_sunrise = sys["sunrise"]; // 1567227606
+     long sys_sunset = sys["sunset"];   // 1567275757
+     long timezone = doc["timezone"];   // 7200
+     DTime sunsetT, sunriseT;
+     sunsetT.setTimestamp(current_sunset + timezone_offset);
+     sunsetHour = (uint32_t)sunsetT.hour;
+     sunsetMin = (uint32_t)sunsetT.minute;
+
+     sunriseT.setTimestamp(current_sunrise + timezone_offset);
+     sunriseHour = (uint32_t)sunriseT.hour;
+     sunriseMin = (uint32_t)sunriseT.minute;
+
+     Serial.printf("Sun : %d:%d - %d:%d\n", sunsetHour, sunsetMin, sunriseHour,
+                   sunriseMin);
+
+     DTime cDate;
+     cDate.setTimestamp(current_dt + timezone_offset);
+     // String dateTimeStr = String(datetime);
+     cDayStr = cDate.weekday;
+     cYear = cDate.year;
+     cMonth = cDate.month;
+     cDay = cDate.day;
+     cHour = cDate.hour;
+     cMin = cDate.minute;
+     cSec = cDate.second;
+     Serial.printf("Nous somme le %s %d %d %d et il est %d:%d:%d\n", DAYS[cDayStr], cDay, cMonth, cYear, cHour, cMin, cSec);
+     /*int indexYear = dateTimeStr.indexOf("-");
+     cYear = dateTimeStr.substring(0, indexYear).toInt();
+     int indexMonth = dateTimeStr.indexOf("-", indexYear + 1);
+     cMonth = dateTimeStr.substring(indexYear + 1, indexMonth).toInt();
+     int indexDay = dateTimeStr.indexOf("T", indexMonth + 1);
+     cDay = dateTimeStr.substring(indexMonth + 1, indexDay).toInt();
+     int indexHour = dateTimeStr.indexOf(":", indexDay + 1);
+     cHour = dateTimeStr.substring(indexDay + 1, indexHour).toInt();
+     int indexMin = dateTimeStr.indexOf(":", indexHour + 1);
+     cMin = dateTimeStr.substring(indexHour + 1, indexMin).toInt();
+     int indexSec = dateTimeStr.indexOf(".", indexMin + 1);
+     cSec = dateTimeStr.substring(indexMin + 1, indexSec).toInt();*/
+}
+
+int getWeatherCode(int weather)
+{
+     if (weather >= 200 && weather <= 232)
+          return STORM;
+     if (weather >= 300 && weather <= 321)
+          return DRIZZLE;
+     if (weather >= 500 && weather <= 531)
+          return RAIN;
+     if (weather >= 600 && weather <= 622)
+          return SNOW;
+     if (weather >= 700 && weather <= 781)
+          return FOG;
+     if (weather == 800)
+          return SUN;
+     if (weather >= 801 && weather <= 802)
+          return SUNNY_CLOUD;
+     if (weather >= 803 && weather <= 804)
+          return CLOUD;
+     return 7;
 }

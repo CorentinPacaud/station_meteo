@@ -1,0 +1,29 @@
+{
+    "timezone_offset":true,
+    "current": {
+        "dt": true,
+        "sunrise": true,
+        "senset": true,
+        "temp": true,
+        "humidity": true,
+        "weather": [
+            {
+                "id": true
+            }
+        ]
+    },
+    "daily": [
+        {
+            "temp": {
+                "day": true,
+                "min": true,
+                "max": true
+            },
+            "weather": [
+                {
+                    "id": true
+                }
+            ]
+        }
+    ]
+}
