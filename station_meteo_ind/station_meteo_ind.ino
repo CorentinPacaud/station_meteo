@@ -38,12 +38,6 @@
  *
  */
 
-extern "C"
-{
-#include "user_interface.h" // this is for the RTC memory read/write functions
-}
-#define RTCMEMORYSTART 66
-#define RTCMEMORYLEN 125
 
 #include <Adafruit_GFX.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
@@ -63,9 +57,12 @@ extern "C"
 #include <ArduinoJson.h>
 
 #include <DNSServer.h> //Local DNS Server used for redirecting all requests to the configuration portal
+
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WebServer.h> //Local WebServer used to serve the configuration portal
 #include <ESP8266WiFi.h>
+
+
 #include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 
 #include <Fonts/FreeMonoBold18pt7b.h>
@@ -77,7 +74,9 @@ extern "C"
 #include "font36.h"
 
 //#include "DHT.h"
-#include "DHTesp.h"
+
+#include <DHT.h>
+#define DHTTYPE DHT22 // DHT 22  (AM2302), AM2321
 
 #define DHTPIN 5      // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22 // there are multiple kinds of DHT sensors
@@ -1663,3 +1662,21 @@ int getWeatherCode(int weather)
           return CLOUD;
      return 7;
 }
+
+/**
+ * @brief
+ *
+ * alerts: [
+ * {
+ * sender_name: "METEO-FRANCE",
+ * event: "Severe thunderstorm warning",
+ * start: 1654351200,
+ * end: 1654437600,
+ * description: "Severe thunderstorms may cause local damage.,                  Significant damage is expected locally on light and temporary structures or habitat.,                  Flooding of basements and low areas may occur suddenly. ,                  Some forest fire outbreaks may happen due to lightning strikes without precipitation.",
+ * tags: [
+ * "Thunderstorm"
+ * ]
+ * }
+ * ]
+ *
+ */
