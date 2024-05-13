@@ -43,10 +43,17 @@
 class Screen {
    private:
     GxEPD2_BW<GxEPD2_420, 300>& _display;
-    Clock _clock;
+    Clock* _clock;
+
+    void showTime();
+    void showDate();
+    void showLines();
+    void showWeather();
+    void showTemperatures();
+    void showSunSetRise();
 
    public:
-    Screen(Clock clock, GxEPD2_BW<GxEPD2_420, 300>& display) : _clock(clock), _display(display){};
+    Screen(Clock* clock, GxEPD2_BW<GxEPD2_420, 300>& display) : _clock(clock), _display(display){};
     void init();
     void refresh();
 };
