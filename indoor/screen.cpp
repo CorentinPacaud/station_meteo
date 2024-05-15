@@ -36,18 +36,18 @@ void Screen::showTime() {
     this->_display.setTextColor(GxEPD_BLACK);
     this->_display.setFont(&Sono_Proportional_Regular50pt7b);
     this->_display.setCursor(5, 68);
-    this->_display.print(this->_clock->timeToText());
+    this->_display.print(this->_clock->timeToText().c_str());
 }
 
 void Screen::showDate() {
     const int top = 120;
     this->_display.setFont(&Sono_Proportional_Regular24pt7b);
     this->_display.setCursor(10, top);
-    this->_display.print(this->_clock->yearToText());
+    this->_display.print(this->_clock->yearToText().c_str());
     this->_display.setCursor(160, top);
-    this->_display.print(this->_clock->dayOfWeekToText());
+    this->_display.print(this->_clock->dayOfWeekToText().c_str());
     this->_display.setCursor(265, top);
-    this->_display.print(this->_clock->dateToText());
+    this->_display.print(String(this->_clock->dateToText().c_str()));
 }
 
 void Screen::showLines() {

@@ -1,6 +1,8 @@
 
 #include <Arduino.h>
 
+#include <string>
+
 #ifndef CLOCK_H_
 #define CLOCK_H_
 
@@ -8,10 +10,10 @@ class Clock {
    public:
     void setTime(int hours, int minutes);
     void setDate(int year, int month, int day, int dayOfWeek);
-    String timeToText();
-    String yearToText();
-    String dayOfWeekToText();
-    String dateToText();
+    std::string timeToText();
+    std::string yearToText();
+    std::string dayOfWeekToText();
+    std::string dateToText();
 
    private:
     int _minutes;
