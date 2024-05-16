@@ -13,14 +13,22 @@ ClockService* clockService = new ClockService(&myClock);
 
 void setup() {
     Serial.begin(115200);
-    clockService->getData();
-
     myScreen->init();
 
-    // myClock.setTime(10, 53);
-    // myClock.setDate(2024, 5, 13, 1);
+    while (true) {
+        clockService->getData();
 
-    myScreen->refresh();
+        myScreen->refreshFull();
+        for (int min = 0; min < 5; min++) {
+            for (int i = 0; i < 60; i++) {
+                delay(1000);
+            }
+            // myClock.setTime(10, 53);
+            // myClock.setDate(2024, 5, 13, 1);
+            myClock.addOneMinute();
+            myScreen->refreshClock();
+        }
+    }
 }
 
 void loop() {

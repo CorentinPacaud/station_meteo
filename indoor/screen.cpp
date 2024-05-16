@@ -8,21 +8,20 @@
 #include "Sono_Proportional_Regular30pt7b.h"
 #include "Sono_Proportional_Regular50pt7b.h"
 #include "background.h"
+#include "meteocons20pt7b.h"
 #include "meteocons25pt7b.h"
 #include "meteocons40pt7b.h"
 
 void Screen::init() { this->_display.init(115200, true, 2, false); }
 
 void Screen::refresh() {
-    this->_display.setFullWindow();
-
     this->_display.firstPage();
     do {
         this->_display.fillScreen(GxEPD_WHITE);
 
         this->_display.setTextColor(GxEPD_BLACK);
 
-        this->showTime();
+        this->showClock();
         this->showDate();
         this->showLines();
         this->showWeather();
@@ -32,11 +31,23 @@ void Screen::refresh() {
     } while (this->_display.nextPage());
 }
 
-void Screen::showTime() {
+void Screen::refreshFull() {
+    this->_display.setFullWindow();
+
+    refresh();
+}
+
+void Screen::refreshClock() {
+    this->_display.setPartialWindow(0, 0, 250, 72);
+
+    refresh();
+}
+
+void Screen::showClock() {
     this->_display.setTextColor(GxEPD_BLACK);
     this->_display.setFont(&Sono_Proportional_Regular50pt7b);
     this->_display.setCursor(5, 68);
-    this->_display.print(this->_clock->timeToText().c_str());
+    this->_display.print(this->_clock->clockToText().c_str());
 }
 
 void Screen::showDate() {
@@ -57,13 +68,13 @@ void Screen::showLines() {
 
 void Screen::showWeather() {
     this->_display.setFont(&meteocons40pt7b);
-    this->_display.setCursor(30, 205);
-    this->_display.print("L");
-    this->_display.setFont(&meteocons25pt7b);
+    this->_display.setCursor(30, 200);
+    this->_display.print(this->_clock->weatherToText().c_str());
+    this->_display.setFont(&meteocons20pt7b);
     this->_display.setCursor(40, 250);
-    this->_display.print("L");
+    this->_display.print(this->_clock->weatherJ1ToText().c_str());
     this->_display.setCursor(40, 295);
-    this->_display.print("L");
+    this->_display.print(this->_clock->weatherJ2ToText().c_str());
 
     this->_display.setFont(&Sono_Proportional_Regular12pt7b);
     this->_display.setCursor(90, 230);
