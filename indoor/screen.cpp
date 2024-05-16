@@ -87,12 +87,12 @@ void Screen::showTemperatures() {
 
     // max
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(215, 243);
+    this->_display.setCursor(220, 243);
     this->_display.print("22");
 
     // min
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(215, 283);
+    this->_display.setCursor(220, 283);
     this->_display.print("19");
 
     // humidity
@@ -121,7 +121,7 @@ void Screen::showTemperatures() {
 
     // ICON TEMP
     this->_display.setFont(&meteocons25pt7b);
-    this->_display.setCursor(253, 205);
+    this->_display.setCursor(255, 205);
     this->_display.print("'");
 
     // humidity

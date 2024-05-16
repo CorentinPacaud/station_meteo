@@ -14,7 +14,11 @@ void Clock::setDate(int year, int month, int day, int dayOfWeek) {
     _dayOfWeek = dayOfWeek;
 }
 
-std::string Clock::timeToText() { return std::to_string(_hours) + ":" + std::to_string(_minutes); }
+std::string Clock::timeToText() {
+    char time[5];
+    sprintf(time, "%02d:%02d", _hours, _minutes);
+    return std::string(time);
+}
 
 std::string Clock::yearToText() { return std::to_string(_year); };
 
@@ -27,13 +31,8 @@ std::string Clock::dayOfWeekToText() {
 };
 
 std::string Clock::dateToText() {
-    char monthStr[2];
-    char dayStr[2];
-    sprintf(monthStr, "%02d", _month);
-    sprintf(dayStr, "%02d", _day);
-    std::string date;
-    date.append(dayStr);
-    date.append("/");
-    date.append(monthStr);
-    return date;
+    char date[5];
+    sprintf(date, "%02d/%02d", _day, _month);
+
+    return std::string(date);
 }
