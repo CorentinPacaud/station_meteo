@@ -11,11 +11,6 @@ const char* ssid = "CorentinP";
 const char* password = "CorentinPBBox";
 
 void ClockService::getDate() {
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
     WiFiClient client;
     HTTPClient http;
     http.setTimeout(10000);
@@ -69,7 +64,7 @@ int getWeatherCode(int weather) {
     return 7;
 }
 
-void deserializeJsonOpenWeather(Clock* clock, String input) {
+void deserializeJsonOpenWeather(Clock* clock, Weather* weather, String input) {
     StaticJsonDocument<304> filter;
     filter["timezone_offset"] = true;
 
@@ -108,11 +103,11 @@ void deserializeJsonOpenWeather(Clock* clock, String input) {
     long current_dt = current["dt"];            // 1612992998
     long current_sunrise = current["sunrise"];  // 1612939831
     long current_sunset = current["sunset"];    // 1612976221
-    // TODO tempExtCurr = current["temp"];              // 271.87
+    long tempExtCurr = current["temp"];         // 271.87
 
     // float current_feels_like = current["feels_like"]; // 267.61
     // int current_pressure = current["pressure"];       // 1016
-    // TODO humExtCurr = current["humidity"];  // 88
+    long humExtCurr = current["humidity"];  // 88
 
     // float current_dew_point = current["dew_point"];   // 270.34
     // int current_uvi = current["uvi"];                 // 0
@@ -203,6 +198,9 @@ void deserializeJsonOpenWeather(Clock* clock, String input) {
     int sunriseHour = (uint32_t)sunriseT.hour;
     int sunriseMin = (uint32_t)sunriseT.minute;
     clock->setSunrise(sunriseHour, sunriseMin);
+
+    weather->setOutdoorTemperature(tempExtCurr, static_cast<int>(std::round(daily_0_temp_max)), static_cast<int>(std::round(daily_0_temp_min)));
+    weather->_outdoorTemperature._humidity = humExtCurr;
 }
 
 void ClockService::getWeather() {
@@ -214,7 +212,7 @@ void ClockService::getWeather() {
     Serial.println(httpCode);
     if (httpCode > 0) {  // Check the returning code
         String json = http.getString();
-        deserializeJsonOpenWeather(this->_clock, json);
+        deserializeJsonOpenWeather(this->_clock, this->_weather, json);
     } else {
         Serial.println("ERROR open weather onecall");
     }

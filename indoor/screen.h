@@ -1,5 +1,6 @@
 #include "GxEPD2_GFX.h"
 #include "clock.h"
+#include "weather.h"
 
 #ifndef DISPLAY_H_
 #define DISPLAY_H_
@@ -44,6 +45,7 @@ class Screen {
    private:
     GxEPD2_BW<GxEPD2_420, 300>& _display;
     Clock* _clock;
+    Weather* _weather;
 
     void showClock();
     void showDate();
@@ -54,7 +56,7 @@ class Screen {
     void refresh();
 
    public:
-    Screen(Clock* clock, GxEPD2_BW<GxEPD2_420, 300>& display) : _clock(clock), _display(display){};
+    Screen(Clock* clock, Weather* weather, GxEPD2_BW<GxEPD2_420, 300>& display) : _clock(clock), _weather(weather), _display(display){};
     void init();
     void refreshFull();
     void refreshClock();

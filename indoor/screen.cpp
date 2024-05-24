@@ -2,6 +2,8 @@
 
 #include <Adafruit_GFX.h>
 
+#include <string>
+
 #include "Sono_Proportional_Regular12pt7b.h"
 #include "Sono_Proportional_Regular18pt7b.h"
 #include "Sono_Proportional_Regular24pt7b.h"
@@ -57,7 +59,7 @@ void Screen::showDate() {
     this->_display.print(this->_clock->yearToText().c_str());
     this->_display.setCursor(160, top);
     this->_display.print(this->_clock->dayOfWeekToText().c_str());
-    this->_display.setCursor(265, top);
+    this->_display.setCursor(270, top);
     this->_display.print(String(this->_clock->dateToText().c_str()));
 }
 
@@ -94,22 +96,24 @@ void Screen::showTemperatures() {
 
     this->_display.setFont(&Sono_Proportional_Regular30pt7b);
     this->_display.setCursor(200, 205);
-    this->_display.print("21");
+    this->_display.print(this->_weather->_indoorTemperature._currentTemperature);
 
     // max
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(220, 243);
-    this->_display.print("22");
+    this->_display.setCursor(225, 243);
+    this->_display.print(this->_weather->_indoorTemperature._maxTemperature);
 
     // min
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(220, 283);
-    this->_display.print("19");
+    this->_display.setCursor(225, 283);
+    this->_display.print(this->_weather->_indoorTemperature._minTemperature);
 
     // humidity
     this->_display.setFont(&Sono_Proportional_Regular12pt7b);
-    this->_display.setCursor(165, 263);
-    this->_display.print("19%");
+    this->_display.setCursor(160, 263);
+    char humStrIn[3];
+    sprintf(humStrIn, "%02d%%", this->_weather->_indoorTemperature._humidity);
+    this->_display.print(humStrIn);
 
     // OUTDOOR =================================================================
 
@@ -118,17 +122,17 @@ void Screen::showTemperatures() {
 
     this->_display.setFont(&Sono_Proportional_Regular30pt7b);
     this->_display.setCursor(300, 205);
-    this->_display.print("14");
+    this->_display.print(this->_weather->_outdoorTemperature._currentTemperature);
 
     // max
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
     this->_display.setCursor(300, 243);
-    this->_display.print("18");
+    this->_display.print(this->_weather->_outdoorTemperature._maxTemperature);
 
     // min
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
     this->_display.setCursor(300, 283);
-    this->_display.print("10");
+    this->_display.print(this->_weather->_outdoorTemperature._minTemperature);
 
     // ICON TEMP
     this->_display.setFont(&meteocons25pt7b);
@@ -138,7 +142,9 @@ void Screen::showTemperatures() {
     // humidity
     this->_display.setFont(&Sono_Proportional_Regular12pt7b);
     this->_display.setCursor(355, 263);
-    this->_display.print("20%");
+    char humStrOut[3];
+    sprintf(humStrOut, "%02d%%", this->_weather->_outdoorTemperature._humidity);
+    this->_display.print(humStrOut);
 }
 
 void Screen::showSunSetRise() {
@@ -146,13 +152,13 @@ void Screen::showSunSetRise() {
     this->_display.setCursor(253, 43);
     this->_display.print("1");
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(303, 30);
-    this->_display.print("07:54");
+    this->_display.setCursor(307, 30);
+    this->_display.print(this->_clock->sunriseToText().c_str());
 
     this->_display.setFont(&meteocons25pt7b);
     this->_display.setCursor(253, 80);
     this->_display.print("2");
     this->_display.setFont(&Sono_Proportional_Regular18pt7b);
-    this->_display.setCursor(303, 68);
-    this->_display.print("21:36");
+    this->_display.setCursor(307, 68);
+    this->_display.print(this->_clock->sunsetToText().c_str());
 }
